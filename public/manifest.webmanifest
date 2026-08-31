@@ -1,0 +1,11 @@
+{
+  "name": "FlowMeter Mission Manager",
+  "short_name": "FlowMeter",
+  "start_url": "./",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "fa",
+  "theme_color": "#0f766e",
+  "background_color": "#f6f8f7",
+  "icons": [{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
