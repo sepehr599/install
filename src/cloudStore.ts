@@ -42,7 +42,7 @@ export async function loadCloudData(theme: AppData['theme'] = 'light'): Promise<
     latitude: toNum(r.latitude), longitude: toNum(r.longitude), accuracy: toNum(r.accuracy),
     pipeMaterial: r.pipe_material || '', pipeDiameter: toNum(r.pipe_diameter), pipeThickness: toNum(r.pipe_thickness), liningThickness: toNum(r.lining_thickness),
     signalQuality: toNum(r.signal_quality), signalPower: toNum(r.signal_power), soundPath: r.sound_path || undefined,
-    transmitterSerial: r.transmitter_serial || '', sensorSerial: r.sensor_serial || '', flow: toNum(r.flow_lps), notes: r.notes || '',
+    transmitterSerial: r.transmitter_serial || '', sensorSerial: r.sensor_serial || '', flow: toNum(r.flow_lps), notes: r.notes || '', followUp: Boolean(r.follow_up),
     photos: snapshotMedia(r.id, 'photo'), voices: snapshotMedia(r.id, 'audio'),
   }))
 
@@ -54,23 +54,16 @@ export async function loadCloudData(theme: AppData['theme'] = 'light'): Promise<
   const missions: Mission[] = (missionsQ.data || []).map((r: any) => {
     const mealRow: any = (mealsQ.data || []).find((x: any) => x.mission_id === r.id)
     const meal = mealRow ? { id: mealRow.id, missionId: r.id, title: mealRow.title || 'غذا', amount: Number(mealRow.amount || 0), vendor: mealRow.vendor || '', notes: mealRow.notes || '', files: [
-      ...missionMedia(r.id, 'meal', 'photo'), ...missionMedia(r.id, 'meal', 'receipt'), ...missionMedia(r.id, 'meal', 'invoice'), ...missionMedia(r.id, 'meal', 'screenshot'),
+      ...missionMedia(r.id, 'meal', 'photo'), ...missionMedia(r.id, 'meal', 'receipt'), ...missionMedia(r.id, 'meal', 'invoice'),
     ] } : undefined
     const travel: TravelSegment[] = (travelQ.data || []).filter((x: any) => x.mission_id === r.id).map((x: any) => ({
-      id: x.id, missionId: r.id, origin: x.origin, destination: x.destination, vehicle: x.vehicle || '', amount: Number(x.amount || 0), dateTime: x.date_time || '', notes: x.notes || '', files: [
-        ...missionMedia(r.id, 'travel', 'photo'), ...missionMedia(r.id, 'travel', 'receipt'), ...missionMedia(r.id, 'travel', 'screenshot'),
-      ],
+      id: x.id, missionId: r.id, origin: x.origin, destination: x.destination, vehicle: x.vehicle || '', amount: Number(x.amount || 0), dateTime: x.date_time || '', notes: x.notes || '', files: missionMedia(r.id, 'travel', 'photo'),
     }))
-    const otherExpenses: OtherExpense[] = (otherQ.data || []).filter((x: any) => x.mission_id === r.id).map((x: any) => ({ id: x.id, missionId: r.id, title: x.title, amount: Number(x.amount || 0), notes: x.notes || '', files: [] }))
+    const otherExpenses: OtherExpense[] = (otherQ.data || []).filter((x: any) => x.mission_id === r.id).map((x: any) => ({ id: x.id, missionId: r.id, title: x.title, amount: Number(x.amount || 0), notes: x.notes || '', files: missionMedia(r.id, 'other', 'photo') }))
     return {
       id: r.id, date: r.date, cityId: r.city_id, title: r.title, notes: r.notes || '', startTime: r.start_time || '', endTime: r.end_time || '', status: r.status,
       wellIds: missionWells.filter((x: any) => x.mission_id === r.id).map((x: any) => x.well_id), meal, travel, otherExpenses,
-      files: [
-        ...missionMedia(r.id, 'mission', 'photo'),
-        ...missionMedia(r.id, 'mission', 'receipt'),
-        ...missionMedia(r.id, 'mission', 'invoice'),
-        ...missionMedia(r.id, 'mission', 'screenshot'),
-      ], createdAt: r.created_at,
+      files: missionMedia(r.id, 'mission', 'photo'), createdAt: r.created_at,
     }
   })
 
@@ -104,7 +97,7 @@ export async function syncCloudData(data: AppData) {
     if (error) throw error
   }
   if (data.snapshots.length) {
-    const { error } = await supabase.from('snapshots').upsert(data.snapshots.map(s => ({ id: s.id, well_id: s.wellId, type: s.type, visit_date: s.date, latitude: s.latitude ?? null, longitude: s.longitude ?? null, accuracy: s.accuracy ?? null, pipe_material: s.pipeMaterial, pipe_diameter: s.pipeDiameter ?? null, pipe_thickness: s.pipeThickness ?? null, lining_thickness: s.liningThickness ?? null, signal_quality: s.signalQuality ?? null, signal_power: s.signalPower ?? null, sound_path: s.soundPath ?? null, transmitter_serial: s.transmitterSerial, sensor_serial: s.sensorSerial, flow_lps: s.flow ?? null, notes: s.notes, created_at: s.createdAt })))
+    const { error } = await supabase.from('snapshots').upsert(data.snapshots.map(s => ({ id: s.id, well_id: s.wellId, type: s.type, visit_date: s.date, latitude: s.latitude ?? null, longitude: s.longitude ?? null, accuracy: s.accuracy ?? null, pipe_material: s.pipeMaterial, pipe_diameter: s.pipeDiameter ?? null, pipe_thickness: s.pipeThickness ?? null, lining_thickness: s.liningThickness ?? null, signal_quality: s.signalQuality ?? null, signal_power: s.signalPower ?? null, sound_path: s.soundPath ?? null, transmitter_serial: s.transmitterSerial, sensor_serial: s.sensorSerial, flow_lps: s.flow ?? null, notes: s.notes, follow_up: Boolean(s.followUp), created_at: s.createdAt })))
     if (error) throw error
   }
 
@@ -140,11 +133,19 @@ export async function syncCloudData(data: AppData) {
       const { error } = await supabase.from('other_expenses').upsert({ id: o.id, mission_id: m.id, title: o.title, amount: o.amount, notes: o.notes, created_at: new Date().toISOString() })
       if (error) throw error
     }
-    for (const item of m.files) {
-      if (item.dataUrl) {
-        const uploaded = await uploadMedia(item, `missions/${m.id}`)
-        const { error } = await supabase.from('mission_media').upsert({ id: uploaded.id, mission_id: m.id, category: 'mission', media_type: uploaded.type, storage_path: uploaded.storagePath, original_name: uploaded.name, created_at: uploaded.createdAt })
-        if (error) throw error
+    const missionMediaGroups: Array<{category:string; items:MediaItem[]}> = [
+      { category: 'mission', items: m.files },
+      { category: 'meal', items: m.meal?.files || [] },
+      { category: 'travel', items: m.travel.flatMap(t => t.files || []) },
+      { category: 'other', items: m.otherExpenses.flatMap(o => o.files || []) },
+    ]
+    for (const group of missionMediaGroups) {
+      for (const item of group.items) {
+        if (item.dataUrl) {
+          const uploaded = await uploadMedia(item, `missions/${m.id}/${group.category}`)
+          const { error } = await supabase.from('mission_media').upsert({ id: uploaded.id, mission_id: m.id, category: group.category, media_type: uploaded.type, storage_path: uploaded.storagePath, original_name: uploaded.name, created_at: uploaded.createdAt })
+          if (error) throw error
+        }
       }
     }
   }
