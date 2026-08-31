@@ -30,8 +30,13 @@ export default function App() {
     return () => { alive = false }
   }, [])
   const persist = (next: AppData) => { setData(next); saveData(next); syncCloudData(next).catch(err => setCloudError(err?.message || 'ذخیره در Supabase ناموفق بود')) }
-  const setTheme = () => { const next = { ...data, theme: data.theme === 'light' ? 'dark' : 'light' as const }; persist(next) }
-
+  const setTheme = () => {
+  const next: AppData = {
+    ...data,
+    theme: data.theme === 'light' ? 'dark' : 'light'
+  }
+  persist(next)
+}
   const nav = [
     ['dashboard','داشبورد',Home], ['cities','شهرها',MapPin], ['wells','چاه‌ها',Waves], ['missions','مأموریت‌ها',ClipboardList], ['reports','گزارش‌ها',Gauge], ['settings','تنظیمات',Settings],
   ] as const
