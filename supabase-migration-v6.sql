@@ -1,17 +1,18 @@
 -- FlowMeter Mission Manager v6
--- Defensive migration for mission/expense media ownership and public storage.
--- Run once in Supabase after the previous migrations.
+-- Safe/idempotent repair for mission expense media and public storage access.
 
-alter table if exists mission_media add column if not exists owner_id uuid;
+alter table if exists public.mission_media
+  add column if not exists owner_id uuid;
 
--- Older media rows were mission-level before per-expense ownership was introduced.
-update mission_media
+update public.mission_media
 set owner_id = mission_id
 where owner_id is null;
 
-alter table if exists mission_media alter column owner_id set not null;
+alter table if exists public.mission_media
+  alter column owner_id set not null;
 
-create index if not exists idx_mission_media_owner_category on mission_media(owner_id, category);
+create index if not exists idx_mission_media_owner
+  on public.mission_media(owner_id);
 
 grant usage on schema public to anon;
 grant select, insert, update, delete on all tables in schema public to anon;
@@ -23,7 +24,7 @@ on conflict (id) do update set public = true;
 
 drop policy if exists "flowmeter public files" on storage.objects;
 drop policy if exists "flowmeter anon files" on storage.objects;
-create policy "flowmeter public files"
+create policy "flowmeter anon files"
 on storage.objects for all
 to anon
 using (bucket_id = 'flowmeter-files')
