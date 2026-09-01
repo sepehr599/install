@@ -39,6 +39,7 @@ create table if not exists snapshots (
   sensor_serial text default '',
   flow_lps numeric,
   notes text default '',
+  follow_up boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -77,6 +78,7 @@ create table if not exists meal_expenses (
   amount numeric not null default 0,
   vendor text default '',
   notes text default '',
+  follow_up boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -89,6 +91,7 @@ create table if not exists travel_segments (
   amount numeric not null default 0,
   date_time timestamptz,
   notes text default '',
+  follow_up boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -98,13 +101,14 @@ create table if not exists other_expenses (
   title text not null,
   amount numeric not null default 0,
   notes text default '',
+  follow_up boolean not null default false,
   created_at timestamptz not null default now()
 );
 
 create table if not exists mission_media (
   id uuid primary key default gen_random_uuid(),
   mission_id uuid not null references missions(id) on delete cascade,
-  category text not null check (category in ('meal','travel','mission')),
+  category text not null check (category in ('meal','travel','other','mission')),
   media_type text not null check (media_type in ('photo','audio','receipt','screenshot','invoice')),
   storage_path text not null,
   original_name text,
