@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const publishableKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_URL = 'https://tnegxdhgsvkoqgejrgkd.supabase.co'
 
-if (!url || !publishableKey) {
-  throw new Error('Supabase environment variables are missing')
-}
+const SUPABASE_KEY = 'sb_publishable_t3jH--0uY6U8mIl36Zf6ZA_wy5mgfH-'
 
-export const supabase = createClient(url, publishableKey)
+export const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+)
 
 export const STORAGE_BUCKET = 'flowmeter-files'
