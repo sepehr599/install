@@ -24,10 +24,10 @@
 .card-actions{display:flex;gap:6px}
 .well-card{position:relative;padding:0}
 .well-card-hit{display:block;width:100%;text-align:right;background:transparent;border:0;padding:16px;color:inherit}
-.well-card-delete{position:absolute;top:12px;left:12px;background:var(--card)}
+.well-card-delete{position:absolute;bottom:12px;left:12px;background:var(--card)}
 .mission-card{position:relative;padding:0;display:flex}
 .mission-card-hit{flex:1;display:block;width:100%;text-align:right;background:transparent;border:0;padding:16px;color:inherit}
-.mission-card-delete{position:absolute;top:12px;left:12px;background:var(--card)}
+.mission-card-delete{position:absolute;bottom:12px;left:12px;background:var(--card)}
 
 .mission-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
 .summary-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:right;color:var(--text)}
@@ -54,7 +54,7 @@
   .cost-pill{white-space:nowrap}
   .mission-card{flex-direction:column}
   .mission-card-hit{padding:14px}
-  .mission-card-delete{top:8px;left:8px}
+  .mission-card-delete{bottom:8px;left:8px}
 }
 @media(max-width:560px){
   .mission-summary-grid{grid-template-columns:1fr}

@@ -75,16 +75,21 @@ export async function loadCloudData(theme: AppData['theme'] = 'light'): Promise<
 
 function dataUrlToBlob(dataUrl: string) {
   const [header, base64] = dataUrl.split(',')
-  const mime = header.match(/data:(.*?);base64/)?.[1] || 'application/octet-stream'
+  const mime = header.match(/^data:([^;]+)/)?.[1] || 'application/octet-stream'
   const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
-  return new Blob([bytes], { type: mime })
+  return { blob: new Blob([bytes], { type: mime }), mime }
 }
 
 async function uploadMedia(item: MediaItem, folder: string) {
   if (!item.dataUrl) return item
-  const ext = item.type === 'audio' ? 'webm' : (item.name.split('.').pop() || 'jpg')
-  const path = `${folder}/${item.id}.${ext}`
-  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, dataUrlToBlob(item.dataUrl), { upsert: true, contentType: item.type === 'audio' ? 'audio/webm' : undefined })
+  const { blob, mime } = dataUrlToBlob(item.dataUrl)
+  const extFromMime = mime.includes('webm') ? 'webm' : mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'm4a' : mime.includes('png') ? 'png' : mime.includes('jpeg') ? 'jpg' : mime.includes('pdf') ? 'pdf' : (item.name.split('.').pop() || 'bin')
+  const path = `${folder}/${item.id}.${extFromMime}`
+  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, blob, {
+    upsert: true,
+    contentType: mime,
+    cacheControl: '31536000',
+  })
   if (error) throw error
   return { ...item, dataUrl: undefined, url: mediaUrl(path), storagePath: path }
 }
