@@ -352,3 +352,17 @@ export async function syncCloudData(data: AppData) {
     if (error) throw error
   }
 }
+
+export async function deleteMissionCloud(missionId: string) {
+  // Delete Storage objects first because a DB cascade does not remove files
+  // from Supabase Storage. The mission row deletion then cascades its
+  // mission_wells, meal, travel, other-expense and mission_media rows.
+  const { data: mediaRows, error: mediaErr } = await supabase
+    .from('mission_media')
+    .select('storage_path')
+    .eq('mission_id', missionId)
+  if (mediaErr) throw mediaErr
+  await removeStoragePaths((mediaRows || []).map((r: any) => r.storage_path))
+  const { error } = await supabase.from('missions').delete().eq('id', missionId)
+  if (error) throw error
+}

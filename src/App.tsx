@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ChevronLeft, ClipboardList, CloudOff, Coffee, FileImage, Gauge, Home, Image as ImageIcon, MapPin, Menu, Mic, Moon, Plus, Search, Settings, Sun, Trash2, Upload, Waves, X, CheckCircle2, RotateCcw } from 'lucide-react'
 import { AppData, City, InstallSnapshot, Mission, MediaItem, Well, WellStatus, Meal, TravelSegment, OtherExpense } from './types'
 import { id, loadData, saveData } from './store'
-import { loadCloudData, syncCloudData } from './cloudStore'
+import { loadCloudData, syncCloudData, deleteMissionCloud } from './cloudStore'
 import { supabase } from './supabase'
 import { Empty, Modal, RowLink, Section } from './components'
 import MapPicker from './MapPicker'
+import * as XLSX from 'xlsx'
 
 const statusLabels: Record<WellStatus, string> = { not_installed: 'نصب نشده', installed: 'نصب شده', needs_followup: 'نیازمند مراجعه مجدد', completed: 'تکمیل شده', inactive: 'غیرفعال' }
 const signalTone = (n?: number) => n == null ? 'muted' : n < 50 ? 'danger' : n < 80 ? 'warn' : 'good'
@@ -127,6 +128,7 @@ export default function App() {
   const currentWell=selectedWell?data.wells.find(w=>w.id===selectedWell):undefined
   const currentMission=selectedMission?data.missions.find(m=>m.id===selectedMission):undefined
   return <div className={`app ${data.theme}`}>
+    {mobileMenu&&<button type="button" aria-label="بستن منوی کناری" className="mobile-backdrop" onClick={()=>setMobileMenu(false)} />}
     <aside className={`sidebar ${mobileMenu?'open':''}`}><div className="brand"><div className="brand-mark"><Waves size={22}/></div><div><strong>FlowMeter</strong><small>Mission Manager</small></div></div><nav>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'active':''} onClick={()=>setPageAndClose(key)}><Icon size={19}/><span>{label}</span></button>)}</nav><div className="sidebar-foot"><div className="storage"><span className="dot"/><span>{cloudLoading?'در حال اتصال به Supabase...':cloudError?'خطا در Supabase':'اتصال Supabase فعال'}</span><CloudOff size={15}/></div><small>نسخه 3.1</small></div></aside>
     <main className="main"><header className="topbar"><button className="icon-btn mobile-only" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={22}/></button><div className="top-search"><Search size={18}/><input placeholder="جستجوی شهر، چاه، سریال..." value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="top-actions"><button className="icon-btn" onClick={setTheme}>{data.theme==='light'?<Moon size={19}/>:<Sun size={19}/>}</button></div></header><div className="content">
       {page==='dashboard'&&<Dashboard data={data} counts={counts} totalCosts={totalCosts} goWell={goWell} goMission={goMission} setPage={setPageAndClose}/>} {page==='cities'&&<Cities data={data} persist={persist} selectedCity={selectedCity} setSelectedCity={setSelectedCity} setPage={setPageAndClose}/>} {page==='wells'&&<Wells data={data} persist={persist} city={currentCity} well={currentWell} selectedCity={selectedCity} selectedWell={selectedWell} setSelectedCity={setSelectedCity} setSelectedWell={setSelectedWell} search={search} goWell={goWell}/>} {page==='missions'&&<Missions data={data} persist={persist} mission={currentMission} selectedMission={selectedMission} setSelectedMission={setSelectedMission} goMission={goMission} goWell={goWell}/>} {page==='reports'&&<Reports data={data}/>} {page==='settings'&&<SettingsPage data={data} persist={persist}/>}
@@ -155,7 +157,7 @@ function Wells({data,persist,city,well,selectedCity,selectedWell,setSelectedCity
  const updateWell=(name:string,code:string,cityId:string)=>{persist({...data,wells:data.wells.map((w:Well)=>w.id===selectedWell?{...w,name,code,cityId}:w)});setEditWell(false);setSelectedCity(cityId)}
  const removeWell=(w:Well)=>{const missionCount=data.missions.filter((m:Mission)=>m.wellIds.includes(w.id)).length;if(!confirmDelete(`چاه «${w.name}» و تمام نصب/بازدیدهای آن حذف شود؟${missionCount?` این چاه از ${faDigits(missionCount)} مأموریت نیز حذف می‌شود.`:''}`))return;persist({...data,wells:data.wells.filter((x:Well)=>x.id!==w.id),snapshots:data.snapshots.filter((s:InstallSnapshot)=>s.wellId!==w.id),missions:data.missions.map((m:Mission)=>m.wellIds.includes(w.id)?{...m,wellIds:m.wellIds.filter((wid:string)=>wid!==w.id)}:m)});setSelectedWell(null)}
  if(!selectedWell)return <><div className="page-head"><div><span className="eyebrow">ساختار پروژه</span><h1>چاه‌ها</h1><p>یک شهر را انتخاب کنید تا چاه‌های آن نمایش داده شوند.</p></div></div><div className="city-tabs">{data.cities.map((c:City)=><button key={c.id} className={selectedCity===c.id?'active':''} onClick={()=>selectCity(c.id)}>{c.name}<span>{data.wells.filter((w:Well)=>w.cityId===c.id).length}</span></button>)}</div><div className="well-grid">{cityWells.map((w:Well)=><WellCard key={w.id} well={w} city={data.cities.find((c:City)=>c.id===w.cityId)} onClick={()=>goWell(w.id)} onDelete={()=>removeWell(w)}/>)}</div><button className="floating-add" onClick={()=>setAddWell(true)}><Plus size={22}/></button>{addWell&&<Modal title="افزودن چاه" onClose={()=>setAddWell(false)}><WellForm cities={data.cities} initialCityId={selectedCity||undefined} onSave={add}/></Modal>}</>
- return <><div className="breadcrumb"><button onClick={()=>setSelectedWell(null)}>چاه‌ها</button><ChevronLeft size={16}/><span>{city?.name}</span><ChevronLeft size={16}/><strong>{well.name}</strong></div><div className="page-head"><div><div className="eyebrow">{well.code}</div><h1>{well.name}</h1><p>{city?.name} • وضعیت: <span className={`status ${well.status}`}>{statusLabels[well.status]}</span></p></div><div className="head-actions"><button className="secondary" onClick={()=>setEditWell(true)}>✎ ویرایش چاه / شهر</button><button className="secondary" onClick={()=>setShowVisit(true)}><Plus size={18}/> مراجعه مجدد</button><button className="primary" onClick={()=>setShowInstall(true)}>{snapshots.some(s=>s.type==='installation')?'ویرایش نصب اولیه':'ثبت نصب اولیه'}</button><button className="icon-btn danger" onClick={()=>removeWell(well)}><Trash2 size={17}/></button></div></div>
+ return <><div className="breadcrumb"><button type="button" onClick={()=>{setSelectedWell(null);setSelectedCity(null)}}>چاه‌ها</button><ChevronLeft size={16}/><button type="button" onClick={()=>{setSelectedWell(null);setSelectedCity(city?.id||null)}}>{city?.name||'-'}</button><ChevronLeft size={16}/><strong>{well.name}</strong></div><div className="page-head"><div><div className="eyebrow">{well.code}</div><h1>{well.name}</h1><p>{city?.name} • وضعیت: <span className={`status ${well.status}`}>{statusLabels[well.status]}</span></p></div><div className="head-actions"><button className="secondary" onClick={()=>setEditWell(true)}>✎ ویرایش چاه / شهر</button><button className="secondary" onClick={()=>setShowVisit(true)}><Plus size={18}/> مراجعه مجدد</button><button className="primary" onClick={()=>setShowInstall(true)}>{snapshots.some(s=>s.type==='installation')?'ویرایش نصب اولیه':'ثبت نصب اولیه'}</button><button className="icon-btn danger" onClick={()=>removeWell(well)}><Trash2 size={17}/></button></div></div>
  <div className="well-detail-grid"><section className="detail-card"><div className="detail-title"><MapPin size={19}/> موقعیت ثبت‌شده</div>{well.location?<><div className="coords"><span>Latitude<strong>{well.location.latitude.toFixed(6)}</strong></span><span>Longitude<strong>{well.location.longitude.toFixed(6)}</strong></span><span>Accuracy<strong>{well.location.accuracy?`${well.location.accuracy.toFixed(1)} m`:'-'}</strong></span></div><MapPicker lat={well.location.latitude} lng={well.location.longitude} editable={false} onChange={()=>{}}/></>:<Empty icon={<MapPin/>} title="موقعیت ثبت نشده" text="در اولین نصب، GPS را دریافت و تأیید کنید."/>}</section><section className="detail-card"><div className="detail-title"><Waves size={19}/> آخرین وضعیت فنی</div>{snapshots.length?<SnapshotSummary snapshot={snapshots[0]}/>:<Empty icon={<Gauge/>} title="هنوز نصب یا بازدید ثبت نشده"/>}</section></div>
  <Section title="تاریخچه نصب و بازدید" subtitle="برای مشاهده توضیحات، عکس‌ها و ویس‌ها روی «مشاهده جزئیات» بزنید"><div className="timeline">{snapshots.map((s,i)=><div className="timeline-item" key={s.id}><div className="timeline-dot"/><div className="timeline-card"><div className="timeline-head"><strong>{s.type==='installation'?'نصب اولیه':'مراجعه مجدد'}</strong><span>{jalaliLabel(s.date)}</span></div><div className="chips"><span className={`chip ${signalTone(s.signalQuality)}`}>کیفیت {s.signalQuality??'-'}%</span><span className={`chip ${signalTone(s.signalPower)}`}>قدرت {s.signalPower??'-'}%</span><span className="chip">Path {s.soundPath||'-'}</span><span className="chip">Flow {s.flow??'-'} L/s</span></div><p>{s.notes||'بدون توضیحات'}</p>{s.voices.length>0&&<div className="voice-list inline-voices">{s.voices.map(v=><div className="voice-row" key={v.id}><Mic size={15}/><span>{v.name}</span><AudioPlayer file={v}/></div>)}</div>}<button className="text-btn" onClick={()=>setDetail(s)}>مشاهده جزئیات</button>{i===1&&snapshots[0]&&<Comparison current={snapshots[0]} previous={s}/>}</div></div>)}</div></Section>
  {(showInstall||showVisit)&&<Modal title={showVisit?'ثبت مراجعه مجدد':'ثبت نصب اولیه'} onClose={()=>{setShowInstall(false);setShowVisit(false)}} wide><SnapshotForm previous={showVisit?snapshots[0]:snapshots.find(s=>s.type==='installation')} defaultType={showVisit?'visit':'installation'} well={well} onSave={saveSnapshot}/></Modal>}{detail&&<Modal title={`${detail.type==='installation'?'جزئیات نصب اولیه':'جزئیات مراجعه مجدد'} • ${jalaliLabel(detail.date)}`} onClose={()=>setDetail(null)} wide><SnapshotDetail snapshot={detail}/></Modal>}{editWell&&<Modal title="ویرایش چاه" onClose={()=>setEditWell(false)}><WellForm cities={data.cities} initial={well} onSave={updateWell}/></Modal>}</>}
@@ -225,10 +227,20 @@ function SnapshotForm({previous,defaultType,well,onSave}:{previous?:InstallSnaps
 }
 
 function Missions({data,persist,mission,selectedMission,setSelectedMission,goMission,goWell}:any){const[add,setAdd]=useState(false);const saveMission=(m:Mission)=>{persist({...data,missions:[...data.missions,m]});setAdd(false);setSelectedMission(m.id)}
- const removeMission=(m:Mission,ev?:any)=>{ev?.stopPropagation();if(!confirmDelete(`مأموریت «${m.title}» حذف شود؟ تمام هزینه‌ها و عکس‌های آن نیز حذف می‌شوند.`))return false;persist({...data,missions:data.missions.filter((x:Mission)=>x.id!==m.id)});return true}
- if(!selectedMission)return <><div className="page-head"><div><span className="eyebrow">سفرهای کاری</span><h1>مأموریت‌ها</h1><p>غذا و رفت‌وآمد در سطح مأموریت ثبت می‌شوند، نه در سطح چاه.</p></div><button className="primary" onClick={()=>setAdd(true)}><Plus size={18}/> مأموریت جدید</button></div><div className="mission-grid">{data.missions.map((m:Mission)=><div className="mission-card" key={m.id}><button className="mission-card-hit" onClick={()=>goMission(m.id)}><div className="mission-head"><span>{jalaliLabel(m.date)}</span><span className="mission-status">{m.status==='done'?'انجام شده':m.status==='in_progress'?'در حال انجام':m.status==='planned'?'برنامه‌ریزی شده':'لغو شده'}</span></div><h3>{m.title}</h3><p>{data.cities.find((c:City)=>c.id===m.cityId)?.name} • {m.wellIds.length} چاه</p><strong>{money((m.meal?.amount||0)+m.travel.reduce((a,t)=>a+t.amount,0)+m.otherExpenses.reduce((a,t)=>a+t.amount,0))}</strong></button><button className="icon-btn danger mission-card-delete" onClick={e=>removeMission(m,e)}><Trash2 size={15}/></button></div>)}{!data.missions.length&&<Empty icon={<ClipboardList/>} title="هنوز مأموریتی ثبت نشده" text="مأموریت روزانه خود را ثبت کنید."/>}</div>{add&&<Modal title="مأموریت جدید" onClose={()=>setAdd(false)} wide><MissionForm data={data} onSave={saveMission}/></Modal>}</>
+ const removeMission=async(m:Mission,ev?:any)=>{
+   ev?.stopPropagation()
+   if(!confirmDelete(`مأموریت «${m.title}» حذف شود؟ تمام هزینه‌ها و عکس‌ها/صوت‌های آن از سرور نیز حذف می‌شوند.`))return false
+   try{
+     await syncQueue.current
+     await deleteMissionCloud(m.id)
+     const next={...data,missions:data.missions.filter((x:Mission)=>x.id!==m.id)}
+     persist(next)
+     return true
+   }catch(e:any){alert(`حذف مأموریت از سرور ناموفق بود: ${e?.message||'خطای نامشخص'}`);return false}
+ }
+ if(!selectedMission)return <><div className="page-head"><div><span className="eyebrow">سفرهای کاری</span><h1>مأموریت‌ها</h1><p>غذا و رفت‌وآمد در سطح مأموریت ثبت می‌شوند، نه در سطح چاه.</p></div><button className="primary" onClick={()=>setAdd(true)}><Plus size={18}/> مأموریت جدید</button></div><div className="mission-grid">{data.missions.map((m:Mission)=><div className="mission-card" key={m.id}><button className="mission-card-hit" onClick={()=>goMission(m.id)}><div className="mission-head"><span>{jalaliLabel(m.date)}</span><span className="mission-status">{m.status==='done'?'انجام شده':m.status==='in_progress'?'در حال انجام':m.status==='planned'?'برنامه‌ریزی شده':'لغو شده'}</span></div><h3>{m.title}</h3><p>{data.cities.find((c:City)=>c.id===m.cityId)?.name} • {m.wellIds.length} چاه</p><strong>{money((m.meal?.amount||0)+m.travel.reduce((a,t)=>a+t.amount,0)+m.otherExpenses.reduce((a,t)=>a+t.amount,0))}</strong></button><button className="icon-btn danger mission-card-delete" onClick={e=>{void removeMission(m,e)}}><Trash2 size={15}/></button></div>)}{!data.missions.length&&<Empty icon={<ClipboardList/>} title="هنوز مأموریتی ثبت نشده" text="مأموریت روزانه خود را ثبت کنید."/>}</div>{add&&<Modal title="مأموریت جدید" onClose={()=>setAdd(false)} wide><MissionForm data={data} onSave={saveMission}/></Modal>}</>
  const city=data.cities.find((c:City)=>c.id===mission.cityId);const wells=data.wells.filter((w:Well)=>mission.wellIds.includes(w.id));const total=(mission.meal?.amount||0)+mission.travel.reduce((a:number,t:any)=>a+t.amount,0)+mission.otherExpenses.reduce((a:number,t:any)=>a+t.amount,0);const update=(next:Mission)=>persist({...data,missions:data.missions.map((m:Mission)=>m.id===next.id?next:m)})
- return <MissionDetail data={data} mission={mission} city={city} wells={wells} total={total} update={update} back={()=>setSelectedMission(null)} goWell={goWell} onDelete={()=>{if(removeMission(mission))setSelectedMission(null)}}/>
+ return <MissionDetail data={data} mission={mission} city={city} wells={wells} total={total} update={update} back={()=>setSelectedMission(null)} goWell={goWell} onDelete={async()=>{if(await removeMission(mission))setSelectedMission(null)}}/>
 }
 
 function MissionDetail({data,mission,city,wells,total,update,back,goWell,onDelete}:{data:AppData;mission:Mission;city?:City;wells:Well[];total:number;update:(m:Mission)=>void;back:()=>void;goWell:(id:string)=>void;onDelete:()=>void}){
@@ -289,23 +301,97 @@ function Reports({data}:{data:AppData}) {
   const total=data.missions.reduce((s,m)=>s+(m.meal?.amount||0)+m.travel.reduce((a,t)=>a+t.amount,0)+m.otherExpenses.reduce((a,t)=>a+t.amount,0),0)
   const meal=data.missions.reduce((s,m)=>s+(m.meal?.amount||0),0)
   const travel=data.missions.reduce((s,m)=>s+m.travel.reduce((a,t)=>a+t.amount,0),0)
-  const exportRows=(rows:string[][],name:string)=>{
-    const csv='\uFEFF'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
-    const u=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)
+  const other=total-meal-travel
+  const cityName=(id:string)=>data.cities.find(c=>c.id===id)?.name||''
+  const snapshotRows=data.snapshots.map(s=>{
+    const w=data.wells.find(x=>x.id===s.wellId)
+    return {
+      'شهر':w?cityName(w.cityId):'','چاه':w?.name||'','کد چاه':w?.code||'',
+      'نوع رکورد':s.type==='installation'?'نصب اولیه':'مراجعه مجدد','تاریخ شمسی':jalaliLabel(s.date),'تاریخ میلادی':s.date,
+      'Latitude':s.latitude??'','Longitude':s.longitude??'','دقت GPS':s.accuracy??'',
+      'جنس لوله':s.pipeMaterial,'قطر لوله':s.pipeDiameter??'','ضخامت لوله':s.pipeThickness??'','ضخامت لاینینگ':s.liningThickness??'',
+      'کیفیت سیگنال %':s.signalQuality??'','قدرت سیگنال %':s.signalPower??'','مسیر صدا':s.soundPath||'',
+      'سریال ترانسمیتر':s.transmitterSerial,'سریال سنسور':s.sensorSerial,'دبی L/s':s.flow??'','پیگیری مجدد':s.followUp?'بله':'خیر',
+      'تعداد عکس':s.photos.length,'تعداد فایل صوتی':s.voices.length,'یادداشت':s.notes
+    }
+  })
+  const wellRows=data.wells.map(w=>{
+    const snaps=[...data.snapshots.filter(s=>s.wellId===w.id)].sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt))
+    const last=snaps[0], install=snaps.find(s=>s.type==='installation')
+    return {'شهر':cityName(w.cityId),'نام چاه':w.name,'کد':w.code,'وضعیت':statusLabels[w.status],
+      'Latitude':w.location?.latitude??'','Longitude':w.location?.longitude??'','تعداد نصب/بازدید':snaps.length,
+      'تاریخ نصب اولیه':install?jalaliLabel(install.date):'','آخرین تاریخ':last?jalaliLabel(last.date):'',
+      'کیفیت آخرین سیگنال %':last?.signalQuality??'','قدرت آخرین سیگنال %':last?.signalPower??'','مسیر صدا':last?.soundPath||'',
+      'جنس لوله':last?.pipeMaterial||'','قطر لوله':last?.pipeDiameter??'','ضخامت لوله':last?.pipeThickness??'','ضخامت لاینینگ':last?.liningThickness??'',
+      'سریال ترانسمیتر':last?.transmitterSerial||'','سریال سنسور':last?.sensorSerial||'','دبی آخرین L/s':last?.flow??'',
+      'نیاز به پیگیری':last?.followUp?'بله':'خیر','یادداشت آخرین رکورد':last?.notes||''
+    }
+  })
+  const missionRows=data.missions.map(m=>{
+    const a=m.meal?.amount||0,b=m.travel.reduce((s,t)=>s+t.amount,0),c=m.otherExpenses.reduce((s,t)=>s+t.amount,0)
+    return {'تاریخ شمسی':jalaliLabel(m.date),'تاریخ میلادی':m.date,'عنوان مأموریت':m.title,'شهر':cityName(m.cityId),'شروع':m.startTime,'پایان':m.endTime,'وضعیت':m.status,
+      'تعداد چاه':m.wellIds.length,'چاه‌ها':m.wellIds.map(id=>data.wells.find(w=>w.id===id)?.name||id).join('، '),'غذا':a,'رفت‌وآمد':b,'سایر':c,'مجموع':a+b+c,
+      'تعداد فایل مأموریت':m.files.length,'یادداشت':m.notes}
+  })
+  const travelRows=data.missions.flatMap(m=>m.travel.map((t,i)=>({'تاریخ مأموریت':jalaliLabel(m.date),'مأموریت':m.title,'شهر':cityName(m.cityId),'شماره مسیر':i+1,'مبدأ':t.origin,'مقصد':t.destination,'وسیله':t.vehicle,'مبلغ':t.amount,'زمان':t.dateTime,'تعداد فایل':t.files.length,'یادداشت':t.notes})))
+  const mealRows=data.missions.filter(m=>m.meal).map(m=>{const x=m.meal!;return {'تاریخ مأموریت':jalaliLabel(m.date),'مأموریت':m.title,'شهر':cityName(m.cityId),'عنوان':x.title,'فروشنده':x.vendor,'مبلغ':x.amount,'تعداد رسید/فاکتور':x.files.length,'یادداشت':x.notes}})
+  const otherRows=data.missions.flatMap(m=>m.otherExpenses.map((x,i)=>({'تاریخ مأموریت':jalaliLabel(m.date),'مأموریت':m.title,'شهر':cityName(m.cityId),'شماره':i+1,'عنوان هزینه':x.title,'مبلغ':x.amount,'تعداد فایل':x.files.length,'یادداشت':x.notes})))
+  const mediaRows=[
+    ...data.snapshots.flatMap(s=>[...s.photos,...s.voices].map(f=>{const w=data.wells.find(x=>x.id===s.wellId);return {'دسته':s.type==='installation'?'نصب اولیه چاه':'مراجعه مجدد چاه','شهر':w?cityName(w.cityId):'','چاه':w?.name||'','تاریخ':jalaliLabel(s.date),'نوع فایل':f.type==='audio'?'صوت':'عکس','نام فایل':f.name,'آدرس فایل':f.url||f.storagePath||''}})),
+    ...data.missions.flatMap(m=>[
+      ...m.files.map(f=>({'دسته':'فایل مأموریت','شهر':cityName(m.cityId),'چاه':'','تاریخ':jalaliLabel(m.date),'نوع فایل':f.type,'نام فایل':f.name,'آدرس فایل':f.url||f.storagePath||''})),
+      ...(m.meal?.files||[]).map(f=>({'دسته':'رسید غذا','شهر':cityName(m.cityId),'چاه':'','تاریخ':jalaliLabel(m.date),'نوع فایل':f.type,'نام فایل':f.name,'آدرس فایل':f.url||f.storagePath||''})),
+      ...m.travel.flatMap(t=>t.files.map(f=>({'دسته':'فایل رفت‌وآمد','شهر':cityName(m.cityId),'چاه':'','تاریخ':jalaliLabel(m.date),'نوع فایل':f.type,'نام فایل':f.name,'آدرس فایل':f.url||f.storagePath||''}))),
+      ...m.otherExpenses.flatMap(o=>o.files.map(f=>({'دسته':'فایل سایر هزینه','شهر':cityName(m.cityId),'چاه':'','تاریخ':jalaliLabel(m.date),'نوع فایل':f.type,'نام فایل':f.name,'آدرس فایل':f.url||f.storagePath||''})))
+    ])
+  ]
+  const summaryRows=[['شاخص','مقدار'],['تعداد شهر',data.cities.length],['تعداد چاه',data.wells.length],['تعداد نصب اولیه',data.snapshots.filter(s=>s.type==='installation').length],['تعداد مراجعه مجدد',data.snapshots.filter(s=>s.type==='visit').length],['تعداد مأموریت',data.missions.length],['کل هزینه',total],['هزینه غذا',meal],['هزینه رفت‌وآمد',travel],['سایر هزینه‌ها',other]]
+  const sheet=(rows:any[])=>{
+    const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'اطلاعات':'رکوردی وجود ندارد'}])
+    ws['!cols']=Object.keys(rows[0]||{'اطلاعات':''}).map(k=>({wch:Math.min(45,Math.max(12,k.length+4))}))
+    ws['!views']=[{RTL:true}]
+    ws['!autofilter']={ref:ws['!ref']||'A1:A1'}
+    return ws
   }
-  const exportWells=()=>exportRows([
-    ['شهر','نام چاه','کد','وضعیت','Latitude','Longitude','آخرین تاریخ','کیفیت','قدرت','Path','Flow','Transmitter','Sensor'],
-    ...data.wells.map(w=>{const last=[...data.snapshots.filter(x=>x.wellId===w.id)].sort((a,b)=>b.date.localeCompare(a.date))[0];return [data.cities.find(c=>c.id===w.cityId)?.name||'',w.name,w.code,statusLabels[w.status],String(w.location?.latitude??''),String(w.location?.longitude??''),last?.date||'',String(last?.signalQuality??''),String(last?.signalPower??''),last?.soundPath||'',String(last?.flow??''),last?.transmitterSerial||'',last?.sensorSerial||'']})
-  ],'flowmeter-wells.csv')
-  const exportMissions=()=>exportRows([
-    ['تاریخ','عنوان','شهر','تعداد چاه','غذا','رفت و آمد','سایر','مجموع'],
-    ...data.missions.map(m=>{const a=m.meal?.amount||0,b=m.travel.reduce((s,t)=>s+t.amount,0),c=m.otherExpenses.reduce((s,t)=>s+t.amount,0);return [m.date,m.title,data.cities.find(x=>x.id===m.cityId)?.name||'',String(m.wellIds.length),String(a),String(b),String(c),String(a+b+c)]})
-  ],'flowmeter-missions.csv')
+  const exportExcel=()=>{
+    const wb=XLSX.utils.book_new()
+    const summary=XLSX.utils.aoa_to_sheet(summaryRows);summary['!cols']=[{wch:28},{wch:22}];summary['!views']=[{RTL:true}]
+    XLSX.utils.book_append_sheet(wb,summary,'خلاصه')
+    ;[['چاه‌ها',wellRows],['نصب‌ها و بازدیدها',snapshotRows],['مأموریت‌ها',missionRows],['رفت‌وآمد',travelRows],['غذا',mealRows],['سایر هزینه‌ها',otherRows],['فایل‌ها',mediaRows]].forEach(([name,rows])=>XLSX.utils.book_append_sheet(wb,sheet(rows as any[]),name as string))
+    XLSX.writeFile(wb,`گزارش-فلومتر-${todayISO()}.xlsx`)
+  }
   return <>
-    <div className="page-head"><div><span className="eyebrow">گزارش و جمع‌بندی</span><h1>گزارش‌ها</h1><p>نمای کلی نصب‌ها، چاه‌ها و هزینه‌های مأموریت‌ها</p></div><div className="head-actions"><button className="secondary" onClick={exportWells}>خروجی چاه‌ها CSV</button><button className="primary" onClick={exportMissions}>خروجی مأموریت‌ها CSV</button></div></div>
-    <div className="stats-grid"><div className="stat"><span>کل هزینه</span><strong>{money(total)}</strong></div><div className="stat"><span>غذا</span><strong>{money(meal)}</strong></div><div className="stat"><span>رفت‌وآمد</span><strong>{money(travel)}</strong></div><div className="stat"><span>سایر</span><strong>{money(total-meal-travel)}</strong></div></div>
-    <Section title="آخرین مأموریت‌ها"><div className="table-wrap"><table><thead><tr><th>تاریخ</th><th>عنوان</th><th>شهر</th><th>چاه‌ها</th><th>هزینه</th></tr></thead><tbody>{data.missions.map(m=><tr key={m.id}><td>{jalaliLabel(m.date)}</td><td>{m.title}</td><td>{data.cities.find(c=>c.id===m.cityId)?.name}</td><td>{m.wellIds.length}</td><td>{money((m.meal?.amount||0)+m.travel.reduce((a,t)=>a+t.amount,0)+m.otherExpenses.reduce((a,t)=>a+t.amount,0))}</td></tr>)}</tbody></table></div></Section>
+    <div className="page-head"><div><span className="eyebrow">گزارش و جمع‌بندی</span><h1>گزارش‌ها</h1><p>گزارش Excel چندبرگه و جزئیات کامل نصب‌ها و هزینه‌ها</p></div><div className="head-actions"><button className="primary" onClick={exportExcel}>خروجی کامل Excel (.xlsx)</button></div></div>
+    <div className="stats-grid"><div className="stat"><span>کل هزینه</span><strong>{money(total)}</strong></div><div className="stat"><span>غذا</span><strong>{money(meal)}</strong></div><div className="stat"><span>رفت‌وآمد</span><strong>{money(travel)}</strong></div><div className="stat"><span>سایر</span><strong>{money(other)}</strong></div></div>
+    <Section title="آخرین مأموریت‌ها"><div className="table-wrap"><table><thead><tr><th>تاریخ</th><th>عنوان</th><th>شهر</th><th>چاه‌ها</th><th>هزینه</th></tr></thead><tbody>{data.missions.map(m=><tr key={m.id}><td>{jalaliLabel(m.date)}</td><td>{m.title}</td><td>{cityName(m.cityId)}</td><td>{m.wellIds.length}</td><td>{money((m.meal?.amount||0)+m.travel.reduce((a,t)=>a+t.amount,0)+m.otherExpenses.reduce((a,t)=>a+t.amount,0))}</td></tr>)}</tbody></table></div></Section>
   </>
 }
 
-function SettingsPage({data,persist}:{data:AppData;persist:(d:AppData)=>void}){return <><div className="page-head"><div><span className="eyebrow">تنظیمات</span><h1>تنظیمات</h1><p>نسخه عملیاتی برای استفاده میدانی.</p></div></div><Section title="ذخیره‌سازی"><div className="notice">اطلاعات در Supabase ذخیره می‌شوند و فایل‌ها در Storage قرار می‌گیرند. Login و RLS مطابق طراحی فعلی استفاده نمی‌شوند.</div><button className="danger-btn" onClick={()=>{localStorage.removeItem('flowmeter-app-v2');location.reload()}}><Trash2 size={17}/> پاک کردن داده‌های محلی این دستگاه</button></Section></>}
+function SettingsPage({data,persist}:{data:AppData;persist:(d:AppData)=>void}){
+  const[saving,setSaving]=useState(false)
+  const[message,setMessage]=useState('')
+  const saveLocalToServer=async()=>{
+    if(saving)return
+    setSaving(true);setMessage('')
+    try{
+      const local=loadData()
+      await syncCloudData(local)
+      const fresh=await loadCloudData(local.theme)
+      saveData(fresh)
+      persist(fresh)
+      setMessage(`✓ ذخیره و تأیید شد: ${faDigits(fresh.cities.length)} شهر، ${faDigits(fresh.wells.length)} چاه، ${faDigits(fresh.snapshots.length)} نصب/بازدید و ${faDigits(fresh.missions.length)} مأموریت در سرور ثبت است.`)
+    }catch(e:any){
+      setMessage(`✕ ذخیره‌سازی ناموفق بود: ${e?.message||'خطای نامشخص'}`)
+    }finally{setSaving(false)}
+  }
+  return <><div className="page-head"><div><span className="eyebrow">تنظیمات</span><h1>تنظیمات</h1><p>نسخه عملیاتی برای استفاده میدانی.</p></div></div>
+    <Section title="ذخیره‌سازی داده‌ها">
+      <div className="notice">اطلاعات در Supabase ذخیره می‌شوند و فایل‌ها در Storage قرار می‌گیرند. Login و RLS مطابق طراحی فعلی استفاده نمی‌شوند.</div>
+      <div className="settings-sync-card">
+        <div><strong>ذخیره‌سازی و تأیید روی سرور</strong><p>داده‌های ذخیره‌شده روی این گوشی را به Supabase می‌فرستد، سپس دوباره از سرور می‌خواند و نتیجه را تأیید می‌کند.</p></div>
+        <button className="primary" disabled={saving} onClick={saveLocalToServer}><CheckCircle2 size={17}/>{saving?'در حال ذخیره‌سازی…':'ذخیره‌سازی داده‌های محلی'}</button>
+      </div>
+      {message&&<div className={`sync-result ${message.startsWith('✓')?'success':'error'}`}>{message}</div>}
+      <button className="danger-btn" onClick={()=>{localStorage.removeItem('flowmeter-app-v2');location.reload()}}><Trash2 size={17}/> پاک کردن داده‌های محلی این دستگاه</button>
+    </Section></>}
+}
