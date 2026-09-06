@@ -363,4 +363,31 @@ function Reports({data}:{data:AppData}) {
   </>
 }
 
-function SettingsPage({data,persist}:{data:AppData;persist:(d:AppData)=>void}){return <><div className="page-head"><div><span className="eyebrow">تنظیمات</span><h1>تنظیمات</h1><p>نسخه عملیاتی برای استفاده میدانی.</p></div></div><Section title="ذخیره‌سازی"><div className="notice">اطلاعات در Supabase ذخیره می‌شوند و فایل‌ها در Storage قرار می‌گیرند. Login و RLS مطابق طراحی فعلی استفاده نمی‌شوند.</div><button className="danger-btn" onClick={()=>{localStorage.removeItem('flowmeter-app-v2');location.reload()}}><Trash2 size={17}/> پاک کردن داده‌های محلی این دستگاه</button></Section></>}
+function SettingsPage({data,persist}:{data:AppData;persist:(d:AppData)=>void}){
+  const[saving,setSaving]=useState(false)
+  const[message,setMessage]=useState('')
+  const saveLocalToServer=async()=>{
+    if(saving)return
+    setSaving(true);setMessage('')
+    try{
+      const local=loadData()
+      await syncCloudData(local)
+      const fresh=await loadCloudData(local.theme)
+      saveData(fresh)
+      persist(fresh)
+      setMessage(`✓ ذخیره و تأیید شد: ${faDigits(fresh.cities.length)} شهر، ${faDigits(fresh.wells.length)} چاه، ${faDigits(fresh.snapshots.length)} نصب/بازدید و ${faDigits(fresh.missions.length)} مأموریت در سرور ثبت است.`)
+    }catch(e:any){
+      setMessage(`✕ ذخیره‌سازی ناموفق بود: ${e?.message||'خطای نامشخص'}`)
+    }finally{setSaving(false)}
+  }
+  return <><div className="page-head"><div><span className="eyebrow">تنظیمات</span><h1>تنظیمات</h1><p>نسخه عملیاتی برای استفاده میدانی.</p></div></div>
+    <Section title="ذخیره‌سازی داده‌ها">
+      <div className="notice">اطلاعات در Supabase ذخیره می‌شوند و فایل‌ها در Storage قرار می‌گیرند. Login و RLS مطابق طراحی فعلی استفاده نمی‌شوند.</div>
+      <div className="settings-sync-card">
+        <div><strong>ذخیره‌سازی و تأیید روی سرور</strong><p>داده‌های ذخیره‌شده روی این گوشی را به Supabase می‌فرستد، سپس دوباره از سرور می‌خواند و نتیجه را تأیید می‌کند.</p></div>
+        <button className="primary" disabled={saving} onClick={saveLocalToServer}><CheckCircle2 size={17}/>{saving?'در حال ذخیره‌سازی…':'ذخیره‌سازی داده‌های محلی'}</button>
+      </div>
+      {message&&<div className={`sync-result ${message.startsWith('✓')?'success':'error'}`}>{message}</div>}
+      <button className="danger-btn" onClick={()=>{localStorage.removeItem('flowmeter-app-v2');location.reload()}}><Trash2 size={17}/> پاک کردن داده‌های محلی این دستگاه</button>
+    </Section></>
+}

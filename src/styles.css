@@ -70,3 +70,14 @@
 .field-toggle{display:inline-flex;align-items:center;justify-content:center;margin-top:6px;border:0;background:none;padding:2px 0;color:var(--primary);font-size:.78rem;cursor:pointer}
 .metric strong,.spec-grid strong{direction:ltr;unicode-bidi:isolate;text-align:right}
 .metric strong{display:inline-block}
+
+.settings-sync-card{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px;margin:14px 0;background:var(--soft);border:1px solid var(--border);border-radius:14px}
+.settings-sync-card p{margin:5px 0 0;color:var(--muted);font-size:11px}
+.settings-sync-card button{flex:0 0 auto}
+.sync-result{padding:11px 13px;border-radius:12px;margin:10px 0 14px;font-size:12px}
+.sync-result.success{background:#e8f7f1;color:#116b58;border:1px solid #b8e4d7}
+.sync-result.error{background:#fdeeee;color:#8e2a2a;border:1px solid #efc0c0}
+@media(max-width:700px){
+  .settings-sync-card{align-items:stretch;flex-direction:column}
+  .settings-sync-card button{width:100%}
+}
