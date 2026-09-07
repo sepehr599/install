@@ -44,7 +44,6 @@ export default function App() {
   const [selectedMission,setSelectedMission]=useState<string|null>(null)
   const [mobileMenu,setMobileMenu]=useState(false)
   const [search,setSearch]=useState('')
-  const [navOpen,setNavOpen]=useState(false)
   const historyReady=useRef(false)
   const skipHistoryPush=useRef(false)
   const syncQueue=useRef(Promise.resolve())
@@ -149,6 +148,7 @@ function Cities({data,persist,selectedCity,setSelectedCity,setPage}:any){const[a
 function CityForm({initial,onSave}:{initial?:City|null;onSave:(n:string,d:string)=>void}){const[n,setN]=useState(initial?.name||'');const[d,setD]=useState(initial?.description||'');return <div className="form"><label>نام شهر<input value={n} onChange={e=>setN(e.target.value)} autoFocus/></label><label>توضیحات<textarea value={d} onChange={e=>setD(e.target.value)} rows={4}/></label><div className="modal-actions"><button className="primary" disabled={!n.trim()} onClick={()=>onSave(n.trim(),d.trim())}>ذخیره</button></div></div>}
 
 function Wells({data,persist,city,well,selectedCity,selectedWell,setSelectedCity,setSelectedWell,search,goWell,setPage}:any){
+ const [navOpen,setNavOpen]=useState(false);
  const[addWell,setAddWell]=useState(false);const[editWell,setEditWell]=useState(false);const[showInstall,setShowInstall]=useState(false);const[showVisit,setShowVisit]=useState(false);const[detail,setDetail]=useState<InstallSnapshot|null>(null)
  const cityWells=data.wells.filter((w:Well)=>(!selectedCity||w.cityId===selectedCity)&&(!search||w.name.includes(search)||w.code.toLowerCase().includes(search.toLowerCase())));const snapshots=data.snapshots.filter((s:InstallSnapshot)=>s.wellId===selectedWell).sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));const selectCity=(v:string)=>{setSelectedCity(v);setSelectedWell(null)}
  const add=(name:string,code:string,cityId:string,status:WellStatus)=>{persist({...data,wells:[...data.wells,{id:id(),cityId,name,code,status,createdAt:new Date().toISOString()}]});setAddWell(false)}
