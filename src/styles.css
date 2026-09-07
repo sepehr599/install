@@ -81,3 +81,8 @@
   .settings-sync-card{align-items:stretch;flex-direction:column}
   .settings-sync-card button{width:100%}
 }
+
+.navigation-btn{margin-top:10px;width:100%}.nav-options{display:grid;gap:10px}.nav-options .full{justify-content:center;text-decoration:none}
+
+.status.non_installable{opacity:.8}
+.navigation-btn{margin-top:10px;width:100%}.nav-options{display:grid;gap:10px}.nav-options .full{justify-content:center;text-decoration:none}

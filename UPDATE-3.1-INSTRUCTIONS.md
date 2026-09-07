@@ -13,3 +13,7 @@
 فایل `supabase-migration-v6.sql` را یک بار در Supabase > SQL Editor اجرا کنید.
 
 سپس تمام فایل‌های این پروژه را روی شاخه `main` گیت‌هاب جایگزین کنید. `node_modules` را آپلود نکنید.
+
+
+## v7
+Run `supabase-migration-v7.sql` once in Supabase SQL Editor to enable the «غیرقابل نصب» well status.

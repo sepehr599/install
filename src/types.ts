@@ -1,4 +1,4 @@
-export type WellStatus = 'not_installed' | 'installed' | 'needs_followup' | 'completed' | 'inactive'
+export type WellStatus = 'not_installed' | 'installed' | 'needs_followup' | 'completed' | 'inactive' | 'non_installable'
 export type MissionStatus = 'planned' | 'in_progress' | 'done' | 'cancelled'
 export interface City { id:string; name:string; description:string; createdAt:string }
 export interface MediaItem { id:string; name:string; type:'photo'|'audio'|'receipt'|'screenshot'|'invoice'; url?:string; dataUrl?:string; storagePath?:string; mimeType?:string; createdAt:string; duration?:number; ownerId?:string }
