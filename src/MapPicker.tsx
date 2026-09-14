@@ -4,11 +4,16 @@ import 'leaflet/dist/leaflet.css'
 
 interface Props { lat?: number; lng?: number; onChange: (lat:number,lng:number)=>void; editable?: boolean }
 
+// Inline SVG avoids Leaflet's default marker.png lookup (which can show a
+// broken-image icon on GitHub Pages/mobile browsers).
 const markerIcon = L.divIcon({
   className: 'flowmeter-map-marker',
-  html: '<div class="flowmeter-marker-pin"><span></span></div>',
-  iconSize: [28, 36],
-  iconAnchor: [14, 36],
+  html: `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44" aria-hidden="true">
+    <path d="M18 42S4 28.7 4 17.5C4 9.8 10.3 3.5 18 3.5s14 6.3 14 14C32 28.7 18 42 18 42Z" fill="#147968" stroke="#fff" stroke-width="2.5"/>
+    <circle cx="18" cy="17.5" r="5.5" fill="#fff"/>
+  </svg>`,
+  iconSize: [36, 44],
+  iconAnchor: [18, 44],
 })
 
 export default function MapPicker({lat,lng,onChange,editable=true}:Props){
@@ -24,7 +29,7 @@ export default function MapPicker({lat,lng,onChange,editable=true}:Props){
     if(!ref.current || mapRef.current) return
     const has=lat!=null && lng!=null
     const initial:L.LatLngExpression=[lat??32.65,lng??51.67]
-    const map=L.map(ref.current,{zoomControl:true,attributionControl:true,dragging:true}).setView(initial,has?16:5)
+    const map=L.map(ref.current,{zoomControl:true,attributionControl:true,dragging:true,scrollWheelZoom:true}).setView(initial,has?16:5)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map)
 
     const makeMarker=(position:L.LatLngExpression, draggable:boolean)=>{

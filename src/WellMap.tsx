@@ -45,7 +45,7 @@ function validPoint(w: Well): w is Well & { location: { latitude: number; longit
  * Clusters by actual screen distance, not by latitude/longitude distance.
  * This makes clustering behave correctly at every zoom level and latitude.
  */
-function clusterByPixels(map: any, points: Point[], radiusPx = 58): Cluster[] {
+function clusterByPixels(map: any, points: Point[], radiusPx = 70): Cluster[] {
   const clusters: Cluster[] = []
 
   for (const point of points) {
@@ -96,14 +96,14 @@ function escapeHtml(value: string) {
   }[char] || char))
 }
 
-function addClusterLayer(Lib: any, map: any, points: Point[], layerRef: React.MutableRefObject<any>) {
+function addClusterLayer(Lib: any, map: any, points: Point[], layerRef: { current: any }) {
   if (layerRef.current) {
     try { map.removeLayer(layerRef.current) } catch {}
     layerRef.current = null
   }
 
   const layer = Lib.layerGroup()
-  const clusters = clusterByPixels(map, points, 58)
+  const clusters = clusterByPixels(map, points, 70)
 
   for (const cluster of clusters) {
     if (cluster.items.length === 1) {
