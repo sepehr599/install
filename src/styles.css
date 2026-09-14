@@ -103,3 +103,15 @@
 .nav-button-group{display:grid;gap:8px;margin-top:10px}
 .spin{animation:flowmeter-spin .9s linear infinite}@keyframes flowmeter-spin{to{transform:rotate(360deg)}}
 @media(max-width:700px){.wells-map{height:320px}.report-export-head{align-items:stretch;flex-direction:column}.report-export-head .head-actions{width:100%}}
+
+.sync-banner-wrap{padding:8px 18px 0;position:sticky;top:0;z-index:20}
+.sync-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 13px;border-radius:12px;font-size:12px;line-height:1.6;box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.sync-banner.success{background:#e9f8f1;color:#126b58;border:1px solid #b9e5d7}
+.sync-banner.pending{background:#fff7e5;color:#79540f;border:1px solid #efd39a}
+.sync-banner.error{background:#fdeeee;color:#8b2929;border:1px solid #efc1c1}
+.sync-banner.loading{background:var(--soft);color:var(--muted);border:1px solid var(--border)}
+.mini-sync{padding:6px 10px!important;white-space:nowrap}
+.dark .sync-banner.success{background:#18332c;color:#bfe9dc;border-color:#2c5e52}
+.dark .sync-banner.pending{background:#342c18;color:#f0d89b;border-color:#67562b}
+.dark .sync-banner.error{background:#351f1f;color:#f2bebe;border-color:#693c3c}
+@media(max-width:700px){.sync-banner-wrap{padding:6px 10px 0}.sync-banner{align-items:flex-start;font-size:11px}}

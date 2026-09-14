@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ChevronLeft, ClipboardList, CloudOff, Coffee, FileImage, Gauge, Home, Image as ImageIcon, MapPin, Menu, Mic, Moon, Plus, Search, Settings, Sun, Trash2, Upload, Waves, X, CheckCircle2, RotateCcw, Navigation, Archive } from 'lucide-react'
 import { AppData, City, InstallSnapshot, Mission, MediaItem, Well, WellStatus, Meal, TravelSegment, OtherExpense } from './types'
-import { id, loadData, saveData } from './store'
+import { clearPendingSync, id, loadData, loadPendingSync, saveData, savePendingSync } from './store'
 import { loadCloudData, syncCloudData } from './cloudStore'
 import { supabase } from './supabase'
 import { Empty, Modal, RowLink, Section } from './components'
@@ -48,75 +48,144 @@ export default function App() {
   const historyReady=useRef(false)
   const skipHistoryPush=useRef(false)
   const syncQueue=useRef(Promise.resolve())
-  const saveVersion=useRef(0)
+  const syncRunning=useRef(false)
 
-  // Supabase is the source of truth. LocalStorage is a cache plus a retry marker.
+  const setSyncMessage=(message:string)=>{setCloudError(message)}
+
+  const processPendingSync=async():Promise<boolean>=>{
+    const pending=await loadPendingSync()
+    if(!pending){
+      try{localStorage.removeItem('flowmeter-sync-pending')}catch{}
+      return true
+    }
+    if(!navigator.onLine){
+      setSyncMessage('ذخیره محلی شد ✓ — منتظر اینترنت است؛ بعد از اتصال خودکار ارسال می‌شود.')
+      return false
+    }
+    setSyncMessage('در حال ارسال اطلاعات ذخیره‌شده به سرور…')
+    try{
+      await syncCloudData(pending.data)
+      const verified=await loadCloudData(pending.data.theme)
+      const latest=await loadPendingSync()
+      if(!latest || latest.version===pending.version){
+        await clearPendingSync(pending.version)
+        if(latest && latest.version===pending.version){
+          setData(verified)
+          try{saveData(verified)}catch{}
+        }
+        setSyncMessage('ذخیره شد ✓ — اطلاعات روی سرور تأیید شد.')
+        window.setTimeout(()=>setCloudError(''),2500)
+        return true
+      }
+      // A newer save arrived while this one was being uploaded. Keep it in the
+      // durable outbox and let the next queue turn send the newest snapshot.
+      setData(latest.data)
+      try{saveData(latest.data)}catch{}
+      setSyncMessage('ذخیره جدیدی در صف است؛ در حال تکمیل ارسال…')
+      return false
+    }catch(e){
+      const msg=e instanceof Error?e.message:String(e||'خطای نامشخص')
+      setSyncMessage(navigator.onLine
+        ? `ارسال به سرور ناموفق بود؛ اطلاعات در صف امن دستگاه باقی ماند. ${msg}`
+        : 'ذخیره محلی شد ✓ — اینترنت قطع است؛ بعد از اتصال خودکار ارسال می‌شود.')
+      return false
+    }
+  }
+
+  const queuePendingSync=():Promise<boolean>=>{
+    const job=syncQueue.current.then(async()=>{
+      if(syncRunning.current)return false
+      syncRunning.current=true
+      try{return await processPendingSync()}
+      finally{syncRunning.current=false}
+    })
+    syncQueue.current=job.then(()=>undefined,()=>undefined)
+    return job
+  }
+
+  // Boot from the durable offline snapshot first. This is important when a
+  // user saved photos/voice notes while offline: localStorage may not have room
+  // for the media, but IndexedDB does.
   useEffect(()=>{
     let alive=true
-    const local=loadData()
-    const pending=localStorage.getItem('flowmeter-sync-pending')==='1'
-    loadCloudData(local.theme)
-      .then(async cloud=>{
-        if(!alive)return
-        const localHasData=Boolean(local.cities.length||local.wells.length||local.snapshots.length||local.missions.length)
-        const cloudHasData=Boolean(cloud.cities.length||cloud.wells.length||cloud.snapshots.length||cloud.missions.length)
+    const boot=async()=>{
+      const local=loadData()
+      const pending=await loadPendingSync()
+      if(pending){
+        setData(pending.data)
+        try{saveData(pending.data)}catch{}
+        if(!navigator.onLine) setSyncMessage('ذخیره محلی شد ✓ — منتظر اینترنت است.')
+      }
+      try{
         if(pending){
-          setData(local)
-          setCloudError('در حال تکمیل ذخیره قبلی…')
-          await syncCloudData(local)
-          const verified=await loadCloudData(local.theme)
-          if(alive){
-            setData(verified);saveData(verified)
-            localStorage.removeItem('flowmeter-sync-pending')
-            setCloudError('ذخیره قبلی با موفقیت تکمیل شد ✓')
-            window.setTimeout(()=>setCloudError(''),2200)
-          }
-        }else if(!cloudHasData && localHasData){
-          setData(local)
-          await syncCloudData(local)
-          const verified=await loadCloudData(local.theme)
-          if(alive){setData(verified);saveData(verified)}
+          if(navigator.onLine) await queuePendingSync()
         }else{
-          setData(cloud)
-          saveData(cloud)
+          const cloud=await loadCloudData(local.theme)
+          if(!alive)return
+          const localHasData=Boolean(local.cities.length||local.wells.length||local.snapshots.length||local.missions.length)
+          const cloudHasData=Boolean(cloud.cities.length||cloud.wells.length||cloud.snapshots.length||cloud.missions.length)
+          if(!cloudHasData&&localHasData){
+            setData(local)
+            try{await savePendingSync(local)}catch{}
+            await queuePendingSync()
+          }else{
+            setData(cloud)
+            saveData(cloud)
+          }
         }
-        if(alive && !pending)setCloudError('')
-      })
-      .catch(e=>{
+      }catch(e){
         if(alive){
-          setCloudError(e?.message||'اتصال/ذخیره با Supabase ناموفق است؛ اطلاعات محلی حفظ شد.')
-          setData(local)
-          saveData(local)
+          const msg=e instanceof Error?e.message:String(e||'اتصال ناموفق')
+          setData(pending?.data||local)
+          try{saveData(pending?.data||local)}catch{}
+          setSyncMessage(navigator.onLine?`اتصال به سرور برقرار نشد؛ اطلاعات این دستگاه حفظ شد. ${msg}`:'ذخیره محلی شد ✓ — منتظر اینترنت است.')
         }
-      })
-      .finally(()=>{if(alive)setCloudLoading(false)})
-    return()=>{alive=false}
+      }finally{if(alive)setCloudLoading(false)}
+    }
+    boot()
+    const onOnline=()=>{setSyncMessage('اینترنت وصل شد؛ در حال بررسی ذخیره‌های معوقه…');queuePendingSync()}
+    const onOffline=()=>{setSyncMessage('آفلاین هستید؛ تغییرات جدید محلی ذخیره می‌شوند و بعداً خودکار ارسال خواهند شد.')}
+    window.addEventListener('online',onOnline)
+    window.addEventListener('offline',onOffline)
+    const timer=window.setInterval(()=>{if(navigator.onLine)queuePendingSync()},15000)
+    return()=>{alive=false;window.removeEventListener('online',onOnline);window.removeEventListener('offline',onOffline);window.clearInterval(timer)}
   },[])
 
   const persist=async(next:AppData)=>{
     setData(next)
-    try{saveData(next)}catch(e){console.warn('local cache save failed; cloud sync will continue',e)}
-    setCloudError('در حال ذخیره در Supabase…')
-    const version=++saveVersion.current
-    try{localStorage.setItem('flowmeter-sync-pending','1')}catch{}
-    const job=syncQueue.current.then(async()=>{
+    try{saveData(next)}catch(e){console.warn('local cache save failed',e)}
+    // Always put the FULL snapshot into IndexedDB before attempting network
+    // upload. This makes the save durable even if localStorage is full and also
+    // keeps photos/voice data available for a later retry.
+    try{
+      await savePendingSync(next)
+    }catch(e){
+      const msg=e instanceof Error?e.message:String(e||'خطای نامشخص')
+      setSyncMessage(`حافظه آفلاین قابل استفاده نیست: ${msg}`)
+      // Still try the immediate upload so an online user is not blocked.
       try{
         await syncCloudData(next)
         const verified=await loadCloudData(next.theme)
-        setData(verified)
-        try{saveData(verified)}catch{}
-        if(version===saveVersion.current){try{localStorage.removeItem('flowmeter-sync-pending')}catch{}}
-        setCloudError('ذخیره شد ✓')
-        window.setTimeout(()=>setCloudError(''),1800)
+        setData(verified);saveData(verified)
+        setSyncMessage('ذخیره شد ✓ — اطلاعات روی سرور تأیید شد.')
+        window.setTimeout(()=>setCloudError(''),2500)
         return true
-      }catch(e){
-        const msg=e instanceof Error?e.message:String(e||'خطای نامشخص')
-        setCloudError(`ذخیره در Supabase ناموفق بود: ${msg}`)
+      }catch(err){
+        setSyncMessage('ذخیره کامل انجام نشد؛ اینترنت و حافظه آفلاین را بررسی کنید.')
         return false
       }
-    })
-    syncQueue.current=job.then(()=>undefined,()=>undefined)
-    return job
+    }
+    // A locally durable save counts as a successful registration even when the
+    // phone is offline. The UI reports that it is waiting for upload.
+    if(!navigator.onLine){
+      setSyncMessage('ثبت شد ✓ — روی همین دستگاه امن ذخیره شد و با وصل شدن اینترنت خودکار ارسال می‌شود.')
+      return true
+    }
+    setSyncMessage('ثبت شد؛ در حال تأیید ذخیره روی سرور…')
+    const uploaded=await queuePendingSync()
+    if(uploaded)return true
+    // Offline or transient network failure: local durable save succeeded.
+    return true
   }
 
   const routeState=()=>({flowmeter:true,page,selectedCity,selectedWell,selectedMission})
@@ -163,8 +232,8 @@ export default function App() {
   const currentWell=selectedWell?data.wells.find(w=>w.id===selectedWell):undefined
   const currentMission=selectedMission?data.missions.find(m=>m.id===selectedMission):undefined
   return <div className={`app ${data.theme}`}>
-    <aside className={`sidebar ${mobileMenu?'open':''}`}><div className="brand"><div className="brand-mark"><Waves size={22}/></div><div><strong>FlowMeter</strong><small>Mission Manager</small></div></div><nav>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'active':''} onClick={()=>setPageAndClose(key)}><Icon size={19}/><span>{label}</span></button>)}</nav><div className="sidebar-foot"><div className="storage"><span className="dot"/><span>{cloudLoading?'در حال اتصال به Supabase...':cloudError?'خطا در Supabase':'اتصال Supabase فعال'}</span><CloudOff size={15}/></div><small>نسخه 3.4</small></div></aside>
-    <main className="main"><header className="topbar"><button className="icon-btn mobile-only" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={22}/></button><div className="top-search"><Search size={18}/><input placeholder="جستجوی شهر، چاه، سریال..." value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="top-actions"><button className="icon-btn" onClick={setTheme}>{data.theme==='light'?<Moon size={19}/>:<Sun size={19}/>}</button></div></header><div className="content">
+    <aside className={`sidebar ${mobileMenu?'open':''}`}><div className="brand"><div className="brand-mark"><Waves size={22}/></div><div><strong>FlowMeter</strong><small>Mission Manager</small></div></div><nav>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'active':''} onClick={()=>setPageAndClose(key)}><Icon size={19}/><span>{label}</span></button>)}</nav><div className="sidebar-foot"><div className="storage"><span className="dot"/><span>{cloudLoading?'در حال اتصال به Supabase...':!navigator.onLine?'آفلاین — ذخیره روی دستگاه':cloudError?'در حال همگام‌سازی':'اتصال Supabase فعال'}</span><CloudOff size={15}/></div><small>نسخه 3.5</small></div></aside>
+    <main className="main"><header className="topbar"><button className="icon-btn mobile-only" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={22}/></button><div className="top-search"><Search size={18}/><input placeholder="جستجوی شهر، چاه، سریال..." value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="top-actions"><button className="icon-btn" onClick={setTheme}>{data.theme==='light'?<Moon size={19}/>:<Sun size={19}/>}</button></div></header><div className="sync-banner-wrap">{cloudLoading?<div className="sync-banner loading">در حال بررسی وضعیت ذخیره‌سازی…</div>:cloudError?<div className={`sync-banner ${cloudError.includes("ناموفق")||cloudError.includes("خطا")||cloudError.includes("قابل استفاده")?"error":cloudError.includes("منتظر")||cloudError.includes("آفلاین")?"pending":"success"}`}><span>{cloudError}</span>{cloudError.includes("ناموفق")&&<button type="button" className="secondary mini-sync" onClick={()=>queuePendingSync()}>تلاش مجدد</button>}</div>:null}</div><div className="content">
       {page==='dashboard'&&<Dashboard data={data} counts={counts} totalCosts={totalCosts} goWell={goWell} goMission={goMission} setPage={setPageAndClose}/>} {page==='cities'&&<Cities data={data} persist={persist} selectedCity={selectedCity} setSelectedCity={setSelectedCity} setPage={setPageAndClose}/>} {page==='wells'&&<Wells data={data} persist={persist} city={currentCity} well={currentWell} selectedCity={selectedCity} selectedWell={selectedWell} setSelectedCity={setSelectedCity} setSelectedWell={setSelectedWell} search={search} goWell={goWell} setPage={setPageAndClose}/>} {page==='missions'&&<Missions data={data} persist={persist} mission={currentMission} selectedMission={selectedMission} setSelectedMission={setSelectedMission} goMission={goMission} goWell={goWell} setPage={setPageAndClose}/>} {page==='reports'&&<Reports data={data}/>} {page==='settings'&&<SettingsPage data={data} persist={persist}/>}
     </div></main></div>
 }
