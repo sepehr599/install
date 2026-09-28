@@ -40,6 +40,10 @@ create table if not exists snapshots (
   flow_lps numeric,
   notes text default '',
   follow_up boolean not null default false,
+  output_type text not null default 'unknown' check (output_type in ('4_20','modbus','unknown')),
+  output_status text not null default 'no_panel' check (output_status in ('no_panel','panel_arrived_not_installed','connected_scada_not_checked','panel_and_scada_confirmed')),
+  output_4_value numeric,
+  output_20_value numeric,
   created_at timestamptz not null default now()
 );
 
@@ -79,6 +83,10 @@ create table if not exists meal_expenses (
   vendor text default '',
   notes text default '',
   follow_up boolean not null default false,
+  output_type text not null default 'unknown' check (output_type in ('4_20','modbus','unknown')),
+  output_status text not null default 'no_panel' check (output_status in ('no_panel','panel_arrived_not_installed','connected_scada_not_checked','panel_and_scada_confirmed')),
+  output_4_value numeric,
+  output_20_value numeric,
   created_at timestamptz not null default now()
 );
 
@@ -92,6 +100,10 @@ create table if not exists travel_segments (
   date_time timestamptz,
   notes text default '',
   follow_up boolean not null default false,
+  output_type text not null default 'unknown' check (output_type in ('4_20','modbus','unknown')),
+  output_status text not null default 'no_panel' check (output_status in ('no_panel','panel_arrived_not_installed','connected_scada_not_checked','panel_and_scada_confirmed')),
+  output_4_value numeric,
+  output_20_value numeric,
   created_at timestamptz not null default now()
 );
 
@@ -102,6 +114,10 @@ create table if not exists other_expenses (
   amount numeric not null default 0,
   notes text default '',
   follow_up boolean not null default false,
+  output_type text not null default 'unknown' check (output_type in ('4_20','modbus','unknown')),
+  output_status text not null default 'no_panel' check (output_status in ('no_panel','panel_arrived_not_installed','connected_scada_not_checked','panel_and_scada_confirmed')),
+  output_4_value numeric,
+  output_20_value numeric,
   created_at timestamptz not null default now()
 );
 

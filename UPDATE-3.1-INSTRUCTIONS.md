@@ -17,3 +17,11 @@
 
 ## v7
 Run `supabase-migration-v7.sql` once in Supabase SQL Editor to enable the «غیرقابل نصب» well status.
+
+## v8
+Run `supabase-migration-v8.sql` once in Supabase > SQL Editor. This adds:
+- output type: 4–20 mA / Modbus / فعلاً معلوم نیست
+- output installation/status tracking
+- assigned values for 4 mA and 20 mA
+
+The app keeps the 4 mA value at 0 by default and only shows the two numeric fields when 4–20 mA is selected.

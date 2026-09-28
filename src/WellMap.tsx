@@ -96,7 +96,7 @@ function escapeHtml(value: string) {
   }[char] || char))
 }
 
-function addClusterLayer(Lib: any, map: any, points: Point[], layerRef: { current: any }) {
+function addClusterLayer(Lib: any, map: any, points: Point[], layerRef: { current: any }, onWellClick?: (id: string) => void) {
   if (layerRef.current) {
     try { map.removeLayer(layerRef.current) } catch {}
     layerRef.current = null
@@ -110,6 +110,7 @@ function addClusterLayer(Lib: any, map: any, points: Point[], layerRef: { curren
       const p = cluster.items[0]
       Lib.marker([p.lat, p.lng], { icon: wellIcon(Lib, p.well.name), keyboard: false })
         .bindTooltip(p.well.name, { direction: 'top', offset: [0, -38], opacity: 0.95 })
+        .on('click', () => onWellClick?.(p.well.id))
         .addTo(layer)
     } else {
       Lib.marker([cluster.lat, cluster.lng], { icon: clusterIcon(Lib, cluster.items.length), keyboard: false })
@@ -122,7 +123,7 @@ function addClusterLayer(Lib: any, map: any, points: Point[], layerRef: { curren
   layerRef.current = layer
 }
 
-export default function WellMap({ wells, cities }: { wells: Well[]; cities: City[] }) {
+export default function WellMap({ wells, cities, onWellClick }: { wells: Well[]; cities: City[]; onWellClick?: (id: string) => void }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const layerRef = useRef<any>(null)
@@ -163,7 +164,7 @@ export default function WellMap({ wells, cities }: { wells: Well[]; cities: City
 
       const render = () => {
         if (disposed) return
-        addClusterLayer(Lib, map, points, layerRef)
+        addClusterLayer(Lib, map, points, layerRef, onWellClick)
       }
 
       render()

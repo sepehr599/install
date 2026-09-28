@@ -1,5 +1,5 @@
 import { supabase, STORAGE_BUCKET } from './supabase'
-import { AppData, City, InstallSnapshot, MediaItem, Mission, OtherExpense, TravelSegment, Well } from './types'
+import { AppData, City, InstallSnapshot, MediaItem, Mission, OtherExpense, TravelSegment, Well, OutputType, OutputStatus } from './types'
 
 const toNum = (v: any) => v === null || v === undefined || v === '' ? undefined : Number(v)
 
@@ -41,7 +41,9 @@ export async function loadCloudData(theme: AppData['theme'] = 'light'): Promise<
     id: r.id, type: r.type, wellId: r.well_id, date: r.visit_date, createdAt: r.created_at,
     latitude: toNum(r.latitude), longitude: toNum(r.longitude), accuracy: toNum(r.accuracy),
     pipeMaterial: r.pipe_material || '', pipeDiameter: toNum(r.pipe_diameter), pipeThickness: toNum(r.pipe_thickness), liningThickness: toNum(r.lining_thickness),
-    signalQuality: toNum(r.signal_quality), signalPower: toNum(r.signal_power), soundPath: r.sound_path || undefined,
+    signalQuality: toNum(r.signal_quality) ?? 100, signalPower: toNum(r.signal_power), soundPath: r.sound_path || undefined,
+    outputType: (r.output_type || 'unknown') as OutputType, outputStatus: (r.output_status || 'no_panel') as OutputStatus,
+    output4Value: toNum(r.output_4_value), output20Value: toNum(r.output_20_value),
     transmitterSerial: r.transmitter_serial || '', sensorSerial: r.sensor_serial || '', flow: toNum(r.flow_lps), notes: r.notes || '', followUp: Boolean(r.follow_up),
     photos: snapshotMedia(r.id, 'photo'), voices: snapshotMedia(r.id, 'audio'),
   }))
@@ -137,8 +139,9 @@ export async function syncCloudData(data: AppData) {
         latitude: s.latitude ?? null, longitude: s.longitude ?? null, accuracy: s.accuracy ?? null,
         pipe_material: s.pipeMaterial, pipe_diameter: s.pipeDiameter ?? null,
         pipe_thickness: s.pipeThickness ?? null, lining_thickness: s.liningThickness ?? null,
-        signal_quality: s.signalQuality ?? null, signal_power: s.signalPower ?? null,
-        sound_path: s.soundPath ?? null, transmitter_serial: s.transmitterSerial,
+        signal_quality: s.signalQuality ?? 100, signal_power: s.signalPower ?? null,
+        sound_path: s.soundPath ?? null, output_type: s.outputType ?? 'unknown', output_status: s.outputStatus ?? 'no_panel',
+        output_4_value: s.outputType === '4_20' ? (s.output4Value ?? 0) : null, output_20_value: s.outputType === '4_20' ? (s.output20Value ?? null) : null, transmitter_serial: s.transmitterSerial,
         sensor_serial: s.sensorSerial, flow_lps: s.flow ?? null, notes: s.notes,
         follow_up: Boolean(s.followUp), created_at: s.createdAt
       }))

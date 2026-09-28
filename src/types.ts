@@ -1,8 +1,10 @@
 export type WellStatus = 'not_installed' | 'installed' | 'needs_followup' | 'completed' | 'inactive' | 'non_installable'
 export type MissionStatus = 'planned' | 'in_progress' | 'done' | 'cancelled'
+export type OutputType = '4_20' | 'modbus' | 'unknown'
+export type OutputStatus = 'no_panel' | 'panel_arrived_not_installed' | 'connected_scada_not_checked' | 'panel_and_scada_confirmed'
 export interface City { id:string; name:string; description:string; createdAt:string }
 export interface MediaItem { id:string; name:string; type:'photo'|'audio'|'receipt'|'screenshot'|'invoice'; url?:string; dataUrl?:string; storagePath?:string; mimeType?:string; createdAt:string; duration?:number; ownerId?:string }
-export interface InstallSnapshot { id:string; type:'installation'|'visit'; wellId:string; date:string; createdAt:string; latitude?:number; longitude?:number; accuracy?:number; pipeMaterial:string; pipeDiameter?:number; pipeThickness?:number; liningThickness?:number; signalQuality?:number; signalPower?:number; soundPath?:'Z'|'V'; transmitterSerial:string; sensorSerial:string; flow?:number; notes:string; photos:MediaItem[]; voices:MediaItem[]; followUp?:boolean }
+export interface InstallSnapshot { id:string; type:'installation'|'visit'; wellId:string; date:string; createdAt:string; latitude?:number; longitude?:number; accuracy?:number; pipeMaterial:string; pipeDiameter?:number; pipeThickness?:number; liningThickness?:number; signalQuality?:number; signalPower?:number; soundPath?:'Z'|'V'; outputType?:OutputType; outputStatus?:OutputStatus; output4Value?:number; output20Value?:number; transmitterSerial:string; sensorSerial:string; flow?:number; notes:string; photos:MediaItem[]; voices:MediaItem[]; followUp?:boolean }
 export interface Well { id:string; cityId:string; name:string; code:string; status:WellStatus; createdAt:string; location?:{latitude:number;longitude:number;accuracy?:number} }
 export interface Meal { id:string; missionId:string; title:string; amount:number; vendor:string; notes:string; files:MediaItem[] }
 export interface TravelSegment { id:string; missionId:string; origin:string; destination:string; vehicle:string; amount:number; dateTime:string; notes:string; files:MediaItem[] }
