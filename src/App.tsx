@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Camera, ChevronLeft, ClipboardList, CloudOff, Coffee, FileImage, Gauge, Home, Image as ImageIcon, MapPin, Menu, Mic, Moon, Plus, Search, Settings, Sun, Trash2, Upload, Waves, X, CheckCircle2, RotateCcw, Navigation, Archive, Edit3 } from 'lucide-react'
+import { Camera, ChevronLeft, ClipboardList, CloudOff, Coffee, FileImage, Gauge, Home, Image as ImageIcon, MapPin, Menu, Mic, Moon, Plus, Ruler, Search, Settings, Sun, Trash2, Upload, Waves, X, CheckCircle2, RotateCcw, Navigation, Archive, Edit3 } from 'lucide-react'
 import { AppData, City, InstallSnapshot, Mission, MediaItem, Well, WellStatus, Meal, TravelSegment, OtherExpense, OutputType, OutputStatus } from './types'
 import { clearPendingSync, id, loadData, loadPendingSync, saveData, savePendingSync } from './store'
 import { loadCloudData, syncCloudData } from './cloudStore'
@@ -41,7 +41,7 @@ export default function App() {
   const [data,setData]=useState<AppData>(()=>loadData())
   const [cloudLoading,setCloudLoading]=useState(true)
   const [cloudError,setCloudError]=useState('')
-  const [page,setPage]=useState<'dashboard'|'cities'|'wells'|'missions'|'reports'|'settings'>('dashboard')
+  const [page,setPage]=useState<'dashboard'|'cities'|'wells'|'pipeTools'|'missions'|'reports'|'settings'>('dashboard')
   const [selectedCity,setSelectedCity]=useState<string|null>(null)
   const [selectedWell,setSelectedWell]=useState<string|null>(null)
   const [selectedMission,setSelectedMission]=useState<string|null>(null)
@@ -215,7 +215,7 @@ export default function App() {
     history.pushState(routeState(),'','')
   },[page,selectedCity,selectedWell,selectedMission])
 
-  const setPageAndClose=(key:'dashboard'|'cities'|'wells'|'missions'|'reports'|'settings')=>{
+  const setPageAndClose=(key:'dashboard'|'cities'|'wells'|'pipeTools'|'missions'|'reports'|'settings')=>{
     setPage(key)
     setMobileMenu(false)
     if(key==='wells'){setSelectedWell(null);setSelectedMission(null)}
@@ -225,7 +225,7 @@ export default function App() {
   }
 
   const setTheme=()=>persist({...data,theme:data.theme==='light'?'dark':'light'})
-  const nav=[['dashboard','داشبورد',Home],['cities','شهرها',MapPin],['wells','چاه‌ها',Waves],['missions','مأموریت‌ها',ClipboardList],['reports','گزارش‌ها',Gauge],['settings','تنظیمات',Settings]] as const
+  const nav=[['dashboard','داشبورد',Home],['cities','شهرها',MapPin],['wells','چاه‌ها',Waves],['pipeTools','ابزار لوله',Ruler],['missions','مأموریت‌ها',ClipboardList],['reports','گزارش‌ها',Gauge],['settings','تنظیمات',Settings]] as const
   const counts=useMemo(()=>({cities:data.cities.length,wells:data.wells.length,installs:data.wells.filter(w=>w.status==='installed').length,visits:data.snapshots.filter(x=>x.type==='visit').length,missions:data.missions.length,followups:data.wells.filter(w=>w.status==='needs_followup').length}),[data])
   const totalCosts=useMemo(()=>data.missions.reduce((s,m)=>s+(m.meal?.amount||0)+m.travel.reduce((a,t)=>a+t.amount,0)+m.otherExpenses.reduce((a,t)=>a+t.amount,0),0),[data])
   const goWell=(wellId:string)=>{setSelectedWell(wellId);setSelectedCity(data.wells.find(w=>w.id===wellId)?.cityId??null);setSelectedMission(null);setPage('wells')}
@@ -234,9 +234,10 @@ export default function App() {
   const currentWell=selectedWell?data.wells.find(w=>w.id===selectedWell):undefined
   const currentMission=selectedMission?data.missions.find(m=>m.id===selectedMission):undefined
   return <div className={`app ${data.theme}`}>
+    {mobileMenu&&<button type="button" className="sidebar-backdrop" aria-label="بستن نوار ابزار" onClick={()=>setMobileMenu(false)}/>}
     <aside className={`sidebar ${mobileMenu?'open':''}`}><div className="brand"><div className="brand-mark"><Waves size={22}/></div><div><strong>FlowMeter</strong><small>Mission Manager</small></div></div><nav>{nav.map(([key,label,Icon])=><button key={key} className={page===key?'active':''} onClick={()=>setPageAndClose(key)}><Icon size={19}/><span>{label}</span></button>)}</nav><div className="sidebar-foot"><div className="storage"><span className="dot"/><span>{cloudLoading?'در حال اتصال به Supabase...':!navigator.onLine?'آفلاین — ذخیره روی دستگاه':cloudError?'در حال همگام‌سازی':'اتصال Supabase فعال'}</span><CloudOff size={15}/></div><small>نسخه 3.6</small></div></aside>
     <main className="main"><header className="topbar"><button className="icon-btn mobile-only" onClick={()=>setMobileMenu(!mobileMenu)}><Menu size={22}/></button><div className="top-search"><Search size={18}/><input placeholder="جستجوی شهر، چاه، سریال..." value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="top-actions"><button className="icon-btn" onClick={setTheme}>{data.theme==='light'?<Moon size={19}/>:<Sun size={19}/>}</button></div></header><div className="sync-banner-wrap">{cloudLoading?<div className="sync-banner loading">در حال بررسی وضعیت ذخیره‌سازی…</div>:cloudError?<div className={`sync-banner ${cloudError.includes("ناموفق")||cloudError.includes("خطا")||cloudError.includes("قابل استفاده")?"error":cloudError.includes("منتظر")||cloudError.includes("آفلاین")?"pending":"success"}`}><span>{cloudError}</span>{cloudError.includes("ناموفق")&&<button type="button" className="secondary mini-sync" onClick={()=>queuePendingSync()}>تلاش مجدد</button>}</div>:null}</div><div className="content">
-      {page==='dashboard'&&<Dashboard data={data} counts={counts} totalCosts={totalCosts} goWell={goWell} goMission={goMission} setPage={setPageAndClose}/>} {page==='cities'&&<Cities data={data} persist={persist} selectedCity={selectedCity} setSelectedCity={setSelectedCity} setPage={setPageAndClose}/>} {page==='wells'&&<Wells data={data} persist={persist} city={currentCity} well={currentWell} selectedCity={selectedCity} selectedWell={selectedWell} setSelectedCity={setSelectedCity} setSelectedWell={setSelectedWell} search={search} goWell={goWell} setPage={setPageAndClose}/>} {page==='missions'&&<Missions data={data} persist={persist} mission={currentMission} selectedMission={selectedMission} setSelectedMission={setSelectedMission} goMission={goMission} goWell={goWell} setPage={setPageAndClose}/>} {page==='reports'&&<Reports data={data}/>} {page==='settings'&&<SettingsPage data={data} persist={persist}/>}
+      {page==='dashboard'&&<Dashboard data={data} counts={counts} totalCosts={totalCosts} goWell={goWell} goMission={goMission} setPage={setPageAndClose}/>} {page==='cities'&&<Cities data={data} persist={persist} selectedCity={selectedCity} setSelectedCity={setSelectedCity} setPage={setPageAndClose}/>} {page==='wells'&&<Wells data={data} persist={persist} city={currentCity} well={currentWell} selectedCity={selectedCity} selectedWell={selectedWell} setSelectedCity={setSelectedCity} setSelectedWell={setSelectedWell} search={search} goWell={goWell} setPage={setPageAndClose}/>} {page==='missions'&&<Missions data={data} persist={persist} mission={currentMission} selectedMission={selectedMission} setSelectedMission={setSelectedMission} goMission={goMission} goWell={goWell} setPage={setPageAndClose}/>} {page==='reports'&&<Reports data={data}/>} {page==='pipeTools'&&<PipeTools/>} {page==='settings'&&<SettingsPage data={data} persist={persist}/ >}
     </div></main></div>
 }
 
@@ -389,6 +390,43 @@ function PipeSpecFields({material,diameter,thickness,setMaterial,setDiameter,set
       {material!=='Other'&&<button type="button" className="field-toggle" onClick={()=>setManualThickness(v=>!v)}>{manualThickness?'انتخاب استاندارد':'ورود دستی'}</button>}
     </label>
   </>
+}
+
+function PipeTools(){
+ const [material,setMaterial]=useState('Steel')
+ const [diameter,setDiameter]=useState('')
+ const [thickness,setThickness]=useState('')
+ const [circumference,setCircumference]=useState('')
+ const [circumferenceUnit,setCircumferenceUnit]=useState<'mm'|'cm'>('mm')
+ const circumferenceValue=Number(toEnglishDigits(circumference))
+ const circumferenceMm=circumferenceValue>0?circumferenceValue*(circumferenceUnit==='cm'?10:1):0
+ const calculatedDiameter=circumferenceMm>0?circumferenceMm/Math.PI:0
+ const selectedSpec=(PIPE_SPECS[material]||[]).find(x=>String(x.diameter)===diameter)
+ const selectedThickness=selectedSpec?.thicknesses.find(x=>String(x.value)===thickness)
+ const numberFormat=(value:number, digits=2)=>new Intl.NumberFormat('fa-IR',{maximumFractionDigits:digits}).format(value)
+ return <>
+  <div className="page-head"><div><span className="eyebrow">ابزارهای فنی</span><h1>ابزار لوله</h1><p>انتخاب استاندارد لوله و محاسبه قطر از روی محیط، بدون ثبت اطلاعات در چاه.</p></div></div>
+  <Section title="انتخاب مشخصات لوله" subtitle="ابتدا جنس لوله، سپس قطر و ضخامت‌های موجود برای همان قطر را انتخاب کنید.">
+   <div className="form pipe-tools-form">
+    <div className="form-grid pipe-tools-fields">
+     <PipeSpecFields material={material} diameter={diameter} thickness={thickness} setMaterial={setMaterial} setDiameter={setDiameter} setThickness={setThickness}/>
+    </div>
+    {diameter&&thickness&&<div className="pipe-selection-summary"><strong>مشخصات انتخاب‌شده</strong><span>{material==='HDPE'?'Polyethylene':material==='Ductile Iron'?'Ductile Iron':material==='Steel'?'Steel':'Other'}</span><span>قطر: {faDigits(diameter)} mm</span><span>ضخامت: {faDigits(thickness)} mm</span>{selectedThickness&&<small>{selectedThickness.label}</small>}</div>}
+   </div>
+  </Section>
+  <Section title="محاسبه قطر از روی محیط" subtitle="محیط خارجی لوله را اندازه‌گیری و وارد کنید؛ قطر از رابطه محیط تقسیم بر عدد π محاسبه می‌شود.">
+   <div className="pipe-calculator">
+    <label>محیط اندازه‌گیری‌شده
+     <div className="pipe-circumference-input"><input type="text" inputMode="decimal" placeholder="مثلاً ۳۱۴" value={circumference} onChange={e=>setCircumference(toEnglishDigits(e.target.value))}/><select value={circumferenceUnit} onChange={e=>setCircumferenceUnit(e.target.value as 'mm'|'cm')}><option value="mm">میلی‌متر (mm)</option><option value="cm">سانتی‌متر (cm)</option></select></div>
+    </label>
+    <div className="pipe-calculator-result">
+     <span>قطر محاسبه‌شده</span>
+     {calculatedDiameter>0?<><strong>{numberFormat(calculatedDiameter)} mm</strong><small>معادل {numberFormat(calculatedDiameter/25.4,3)} اینچ</small></>:<strong className="pipe-result-placeholder">پس از وارد کردن محیط نمایش داده می‌شود</strong>}
+    </div>
+   </div>
+   <div className="notice pipe-calculator-note">این محاسبه با فرض مقطع دایره‌ای انجام می‌شود. برای اندازه‌گیری محیط خارجی، قطر خروجی نیز قطر خارجی لوله است.</div>
+  </Section>
+ </>
 }
 
 function SnapshotForm({previous,defaultType,well,editing,onSave}:{previous?:InstallSnapshot;defaultType:'installation'|'visit';well:Well;editing?:boolean;onSave:(s:Omit<InstallSnapshot,'id'|'createdAt'|'wellId'>)=>void}){
