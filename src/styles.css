@@ -115,3 +115,32 @@
 .dark .sync-banner.pending{background:#342c18;color:#f0d89b;border-color:#67562b}
 .dark .sync-banner.error{background:#351f1f;color:#f2bebe;border-color:#693c3c}
 @media(max-width:700px){.sync-banner-wrap{padding:6px 10px 0}.sync-banner{align-items:flex-start;font-size:11px}}
+
+
+/* Mobile sidebar: tap outside to dismiss */
+.sidebar-backdrop{display:none}
+@media(max-width:850px){
+  .sidebar{z-index:10002}
+  .sidebar-backdrop{display:block;position:fixed;inset:0;width:100%;height:100%;padding:0;margin:0;border:0;border-radius:0;background:rgba(5,15,13,.48);z-index:10001;cursor:pointer}
+}
+
+/* Pipe tools page */
+.pipe-tools-form{gap:14px}
+.pipe-tools-fields{max-width:900px}
+.pipe-selection-summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--soft);font-size:12px}
+.pipe-selection-summary strong{width:100%;font-size:12px}
+.pipe-selection-summary span{padding:6px 9px;border-radius:8px;background:var(--card);border:1px solid var(--border)}
+.pipe-selection-summary small{color:var(--muted);width:100%}
+.pipe-calculator{display:grid;grid-template-columns:minmax(240px,1fr) minmax(220px,1fr);gap:16px;align-items:end}
+.pipe-calculator label{display:grid;gap:7px;color:var(--muted);font-size:12px}
+.pipe-circumference-input{display:grid;grid-template-columns:1fr 145px;gap:8px}
+.pipe-circumference-input input,.pipe-circumference-input select{width:100%;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px;color:var(--text)}
+.pipe-calculator-result{min-height:78px;padding:12px 15px;display:flex;flex-direction:column;justify-content:center;gap:4px;background:linear-gradient(135deg,#123f39,#1b665c);border-radius:13px;color:#fff}
+.pipe-calculator-result span,.pipe-calculator-result small{font-size:11px;opacity:.8}
+.pipe-calculator-result strong{font-size:24px;direction:ltr;text-align:right}
+.pipe-calculator-result .pipe-result-placeholder{font-size:13px;direction:rtl}
+.pipe-calculator-note{margin-top:12px}
+@media(max-width:650px){
+  .pipe-calculator{grid-template-columns:1fr}
+  .pipe-circumference-input{grid-template-columns:1fr 130px}
+}
