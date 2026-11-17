@@ -43,3 +43,11 @@
 
 ## Supabase migration v8
 پس از استفاده از نسخه‌های قبلی، فایل `supabase-migration-v8.sql` را یک بار در Supabase > SQL Editor اجرا کنید.
+
+
+## Sensor serial catalogue and dt/length fields
+- Snapshot forms now support searching the supplied sensor serial catalogue by entering any part of the numeric serial suffix.
+- Manual sensor serial entry remains available; the TM prefix is added automatically.
+- Selecting a catalogue sensor fills and saves dt (ns) and sensor length (m), shown in the latest technical status.
+- For existing database installations, run `supabase-migration-v9.sql` once in Supabase > SQL Editor.
+- Source-data note: TM00041214 occurs twice in the supplied table with dt values 0.2 and 1.5 ns. The first row (0.2 ns) is used and a warning is shown in the app.
