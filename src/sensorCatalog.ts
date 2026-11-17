@@ -69,7 +69,7 @@ export const SENSOR_CATALOG: SensorCatalogItem[] = [
 ]
 
 export function normalizeSensorSerial(value: string): string {
-  const cleaned = String(value || '').trim().toUpperCase()
+  const cleaned = String(value || '').trim().toUpperCase().replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
   const digits = cleaned.replace(/^TM/, '').replace(/[^0-9]/g, '')
   return digits ? `TM${digits}` : ''
 }
