@@ -37,6 +37,8 @@ create table if not exists snapshots (
   sound_path text check (sound_path in ('Z','V')),
   transmitter_serial text default '',
   sensor_serial text default '',
+  sensor_dt_ns numeric,
+  sensor_length_m numeric,
   flow_lps numeric,
   notes text default '',
   follow_up boolean not null default false,
