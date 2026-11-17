@@ -44,7 +44,7 @@ export async function loadCloudData(theme: AppData['theme'] = 'light'): Promise<
     signalQuality: toNum(r.signal_quality) ?? 100, signalPower: toNum(r.signal_power), soundPath: r.sound_path || undefined,
     outputType: (r.output_type || 'unknown') as OutputType, outputStatus: (r.output_status || 'no_panel') as OutputStatus,
     output4Value: toNum(r.output_4_value), output20Value: toNum(r.output_20_value),
-    transmitterSerial: r.transmitter_serial || '', sensorSerial: r.sensor_serial || '', flow: toNum(r.flow_lps), notes: r.notes || '', followUp: Boolean(r.follow_up),
+    transmitterSerial: r.transmitter_serial || '', sensorSerial: r.sensor_serial || '', dtNs: toNum(r.sensor_dt_ns), sensorLengthM: toNum(r.sensor_length_m), flow: toNum(r.flow_lps), notes: r.notes || '', followUp: Boolean(r.follow_up),
     photos: snapshotMedia(r.id, 'photo'), voices: snapshotMedia(r.id, 'audio'),
   }))
 
@@ -142,7 +142,7 @@ export async function syncCloudData(data: AppData) {
         signal_quality: s.signalQuality ?? 100, signal_power: s.signalPower ?? null,
         sound_path: s.soundPath ?? null, output_type: s.outputType ?? 'unknown', output_status: s.outputStatus ?? 'no_panel',
         output_4_value: s.outputType === '4_20' ? (s.output4Value ?? 0) : null, output_20_value: s.outputType === '4_20' ? (s.output20Value ?? null) : null, transmitter_serial: s.transmitterSerial,
-        sensor_serial: s.sensorSerial, flow_lps: s.flow ?? null, notes: s.notes,
+        sensor_serial: s.sensorSerial, sensor_dt_ns: s.dtNs ?? null, sensor_length_m: s.sensorLengthM ?? null, flow_lps: s.flow ?? null, notes: s.notes,
         follow_up: Boolean(s.followUp), created_at: s.createdAt
       }))
     )
